@@ -2,7 +2,7 @@ CC = arm-eabi-gcc
 OBJCOPY = arm-eabi-objcopy
 FLAGS = -mthumb -mcpu=cortex-m4
 CPPFLAGS = -DSTM32F411xE
-CFLAGS = $(FLAGS) -Wall -g \
+CFLAGS = $(FLAGS) -std=c11 -Wall -g \
 	-O2 -ffunction-sections -fdata-sections \
 	-I/opt/arm/stm32/inc \
 	-I/opt/arm/stm32/CMSIS/Include \
