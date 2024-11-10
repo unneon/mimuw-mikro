@@ -150,6 +150,7 @@ char log_buffer_pop_next_byte() {
 int main() {
     RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN | RCC_AHB1ENR_GPIOBEN | RCC_AHB1ENR_GPIOCEN;
     RCC->APB1ENR |= RCC_APB1ENR_USART2EN;
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
 
     __NOP();
 
@@ -202,10 +203,48 @@ int main() {
 
     USART2->CR1 |= USART_Enable;
 
+    GPIOinConfigure(LEFT_BUTTON_GPIO, LEFT_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
+    GPIOinConfigure(UP_BUTTON_GPIO, UP_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
+    GPIOinConfigure(RIGHT_BUTTON_GPIO, RIGHT_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
+    GPIOinConfigure(DOWN_BUTTON_GPIO, DOWN_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
+    GPIOinConfigure(FIRE_BUTTON_GPIO, FIRE_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
+    GPIOinConfigure(USER_BUTTON_GPIO, USER_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
+    GPIOinConfigure(MODE_BUTTON_GPIO, MODE_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
+    NVIC_EnableIRQ(EXTI3_IRQn);
+    NVIC_EnableIRQ(EXTI4_IRQn);
+    NVIC_EnableIRQ(EXTI9_5_IRQn);
+    NVIC_EnableIRQ(EXTI15_10_IRQn);
+    NVIC_EnableIRQ(EXTI0_IRQn);
+
     for (;;) {
-        // log_buffer_process();
-        // if (log_buffer_has_unwritten() && USART2->SR & USART_SR_TXE) {
-        //     USART2->DR = log_buffer_pop_next_byte();
-        // }
+        if (log_buffer_has_unwritten() && USART2->SR & USART_SR_TXE) {
+            USART2->DR = log_buffer_pop_next_byte();
+        }
+        Delay(4000);
     }
+}
+
+void EXTI0_IRQHandler(void) {
+    EXTI->PR = EXTI_PR_PR0;
+    log_buffer_process();
+}
+
+void EXTI3_IRQHandler(void) {
+    EXTI->PR = EXTI_PR_PR3;
+    log_buffer_process();
+}
+
+void EXTI4_IRQHandler(void) {
+    EXTI->PR = EXTI_PR_PR4;
+    log_buffer_process();
+}
+
+void EXTI9_5_IRQHandler(void) {
+    EXTI->PR = EXTI_PR_PR5 | EXTI_PR_PR6;
+    log_buffer_process();
+}
+
+void EXTI15_10_IRQHandler(void) {
+    EXTI->PR = EXTI_PR_PR10 | EXTI_PR_PR13;
+    log_buffer_process();
 }
