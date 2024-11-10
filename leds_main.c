@@ -6,13 +6,25 @@
 #define GREEN_LED_GPIO GPIOA
 #define BLUE_LED_GPIO GPIOB
 #define GREEN2_LED_GPIO GPIOA
+#define LEFT_BUTTON_GPIO GPIOB
+#define RIGHT_BUTTON_GPIO GPIOB
+#define UP_BUTTON_GPIO GPIOB
+#define DOWN_BUTTON_GPIO GPIOB
+#define FIRE_BUTTON_GPIO GPIOB
 #define USER_BUTTON_GPIO GPIOC
+#define MODE_BUTTON_GPIO GPIOA
 
 #define RED_LED_PIN 6
 #define GREEN_LED_PIN 7
 #define BLUE_LED_PIN 0
 #define GREEN2_LED_PIN 5
+#define LEFT_BUTTON_PIN 3
+#define RIGHT_BUTTON_PIN 4
+#define UP_BUTTON_PIN 5
+#define DOWN_BUTTON_PIN 6
+#define FIRE_BUTTON_PIN 10
 #define USER_BUTTON_PIN 13
+#define MODE_BUTTON_PIN 0
 
 #define RedLEDon() RED_LED_GPIO->BSRR = 1 << (RED_LED_PIN + 16)
 #define RedLEDoff() RED_LED_GPIO->BSRR = 1 << RED_LED_PIN
@@ -30,7 +42,13 @@
 #define Green2LEDoff() GREEN2_LED_GPIO->BSRR = 1 << (GREEN2_LED_PIN + 16)
 #define Green2LEDstatus() ((GREEN2_LED_GPIO->ODR & (1 << GREEN2_LED_PIN)) != 0)
 
+#define LeftButtonStatus() ((LEFT_BUTTON_GPIO->IDR & (1 << LEFT_BUTTON_PIN)) == 0)
+#define RightButtonStatus() ((RIGHT_BUTTON_GPIO->IDR & (1 << RIGHT_BUTTON_PIN)) == 0)
+#define UpButtonStatus() ((UP_BUTTON_GPIO->IDR & (1 << UP_BUTTON_PIN)) == 0)
+#define DownButtonStatus() ((DOWN_BUTTON_GPIO->IDR & (1 << DOWN_BUTTON_PIN)) == 0)
+#define FireButtonStatus() ((FIRE_BUTTON_GPIO->IDR & (1 << FIRE_BUTTON_PIN)) == 0)
 #define UserButtonStatus() ((USER_BUTTON_GPIO->IDR & (1 << USER_BUTTON_PIN)) == 0)
+#define ModeButtonStatus() ((MODE_BUTTON_GPIO->IDR & (1 << MODE_BUTTON_PIN)) != 0)
 
 #define USART_Mode_Rx_Tx (USART_CR1_RE | USART_CR1_TE)
 #define USART_Enable USART_CR1_UE
@@ -202,7 +220,12 @@ int main() {
         //     command_buffer_process(received_char);
         // }
 
-        set_led(0, UserButtonStatus());
-        set_led(2, UserButtonStatus());
+        // set_led(0, UserButtonStatus());
+        // set_led(1, FireButtonStatus());
+        // set_led(2, ModeButtonStatus());
+        // set_led(0, LeftButtonStatus());
+        // set_led(1, RightButtonStatus());
+        // set_led(2, UpButtonStatus());
+        // set_led(0, DownButtonStatus());
     }
 }
