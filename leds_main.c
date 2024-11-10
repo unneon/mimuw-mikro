@@ -6,11 +6,13 @@
 #define GREEN_LED_GPIO GPIOA
 #define BLUE_LED_GPIO GPIOB
 #define GREEN2_LED_GPIO GPIOA
+#define USER_BUTTON_GPIO GPIOC
 
 #define RED_LED_PIN 6
 #define GREEN_LED_PIN 7
 #define BLUE_LED_PIN 0
 #define GREEN2_LED_PIN 5
+#define USER_BUTTON_PIN 13
 
 #define RedLEDon() RED_LED_GPIO->BSRR = 1 << (RED_LED_PIN + 16)
 #define RedLEDoff() RED_LED_GPIO->BSRR = 1 << RED_LED_PIN
@@ -27,6 +29,8 @@
 #define Green2LEDon() GREEN2_LED_GPIO->BSRR = 1 << GREEN2_LED_PIN
 #define Green2LEDoff() GREEN2_LED_GPIO->BSRR = 1 << (GREEN2_LED_PIN + 16)
 #define Green2LEDstatus() ((GREEN2_LED_GPIO->ODR & (1 << GREEN2_LED_PIN)) != 0)
+
+#define UserButtonStatus() ((USER_BUTTON_GPIO->IDR & (1 << USER_BUTTON_PIN)) == 0)
 
 #define USART_Mode_Rx_Tx (USART_CR1_RE | USART_CR1_TE)
 #define USART_Enable USART_CR1_UE
@@ -141,7 +145,7 @@ void command_buffer_process(char new_char) {
 }
 
 int main() {
-    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN | RCC_AHB1ENR_GPIOBEN;
+    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN | RCC_AHB1ENR_GPIOBEN | RCC_AHB1ENR_GPIOCEN;
     RCC->APB1ENR |= RCC_APB1ENR_USART2EN;
 
     __NOP();
@@ -193,9 +197,12 @@ int main() {
     USART2->CR1 |= USART_Enable;
 
     for (;;) {
-        if (USART2->SR & USART_SR_RXNE) {
-            char received_char = USART2->DR;
-            command_buffer_process(received_char);
-        }
+        // if (USART2->SR & USART_SR_RXNE) {
+        //     char received_char = USART2->DR;
+        //     command_buffer_process(received_char);
+        // }
+
+        set_led(0, UserButtonStatus());
+        set_led(2, UserButtonStatus());
     }
 }
