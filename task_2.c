@@ -80,7 +80,7 @@ char log_buffer_pop() {
 }
 
 int log_buffer_is_empty() {
-    return log_buffer.window_length > 0;
+    return log_buffer.window_length == 0;
 }
 
 void log_buffer_force_send_message(char message) {
@@ -93,7 +93,7 @@ void log_buffer_try_send_message(char message) {
     if ((DMA1_Stream6->CR & DMA_SxCR_EN) == 0 && (DMA1->HISR & DMA_HISR_TCIF6) == 0) {
         log_buffer_force_send_message(message);
     } else {
-        // log_buffer_push(message);
+        log_buffer_push(message);
     }
 }
 
@@ -184,9 +184,9 @@ void DMA1_Stream6_IRQHandler() {
     uint32_t isr = DMA1->HISR;
     if (isr & DMA_HISR_TCIF6) {
         DMA1->HIFCR = DMA_HIFCR_CTCIF6;
-        // if (!log_buffer_is_empty()) {
-        //     char message = log_buffer_pop();
-        //     log_buffer_force_send_message(message);
-        // }
+        if (!log_buffer_is_empty()) {
+            char message = log_buffer_pop();
+            log_buffer_force_send_message(message);
+        }
     }
 }
