@@ -108,48 +108,48 @@ const char* const LOG_BUFFER_MESSAGES[14] = {
     "MODE RELEASED \r\n",
 };
 
-void log_buffer_append_char(char character) {
-    log_buffer.data[(log_buffer.window_start + log_buffer.window_length) % LOG_BUFFER_CAPACITY] = character;
+void log_buffer_push(char message) {
+    if (log_buffer.window_length == LOG_BUFFER_CAPACITY) {
+        // Out of memory, drop the message as there's nothing better to do?
+        return;
+    }
+    log_buffer.data[(log_buffer.window_start + log_buffer.window_length) % LOG_BUFFER_CAPACITY] = message;
     log_buffer.window_length = (log_buffer.window_length + 1) % LOG_BUFFER_CAPACITY;
 }
 
-void log_buffer_append_message(int message_index) {
+char log_buffer_pop() {
+    char message = log_buffer.data[log_buffer.window_start];
+    log_buffer.window_start = (log_buffer.window_start + 1) % LOG_BUFFER_CAPACITY;
+    log_buffer.window_length -= 1;
+    return message;
+}
+
+int log_buffer_is_empty() {
+    return log_buffer.window_length > 0;
+}
+
+void log_buffer_force_send_message(char message) {
+    DMA1_Stream6->M0AR = (uint32_t) LOG_BUFFER_MESSAGES[(int) message];
+    DMA1_Stream6->NDTR = 16;
+    DMA1_Stream6->CR |= DMA_SxCR_EN;
+}
+
+void log_buffer_try_send_message(char message) {
     if ((DMA1_Stream6->CR & DMA_SxCR_EN) == 0 && (DMA1->HISR & DMA_HISR_TCIF6) == 0) {
-        DMA1_Stream6->M0AR = (uint32_t) LOG_BUFFER_MESSAGES[message_index];
-        DMA1_Stream6->NDTR = 16;
-        DMA1_Stream6->CR |= DMA_SxCR_EN;
+        log_buffer_force_send_message(message);
+    } else {
+        // log_buffer_push(message);
     }
 }
 
 void log_buffer_process_button(int index, int new_state) {
     if (!log_buffer.state[index] && new_state) {
         log_buffer.state[index] = new_state;
-        log_buffer_append_message(2 * index);
+        log_buffer_try_send_message(2 * index);
     } else if (log_buffer.state[index] && !new_state) {
         log_buffer.state[index] = new_state;
-        log_buffer_append_message(2 * index + 1);
+        log_buffer_try_send_message(2 * index + 1);
     }
-}
-
-void log_buffer_process() {
-    log_buffer_process_button(0, LeftButtonStatus());
-    log_buffer_process_button(1, RightButtonStatus());
-    log_buffer_process_button(2, UpButtonStatus());
-    log_buffer_process_button(3, DownButtonStatus());
-    log_buffer_process_button(4, FireButtonStatus());
-    log_buffer_process_button(5, UserButtonStatus());
-    log_buffer_process_button(6, ModeButtonStatus());
-}
-
-int log_buffer_has_unwritten() {
-    return log_buffer.window_length > 0;
-}
-
-char log_buffer_pop_next_byte() {
-    char character = log_buffer.data[log_buffer.window_start];
-    log_buffer.window_start = (log_buffer.window_start + 1) % LOG_BUFFER_CAPACITY;
-    log_buffer.window_length -= 1;
-    return character;
 }
 
 int main() {
@@ -237,28 +237,33 @@ void EXTI0_IRQHandler(void) {
 
 void EXTI3_IRQHandler(void) {
     EXTI->PR = EXTI_PR_PR3;
-    log_buffer_process();
+    log_buffer_process_button(0, LeftButtonStatus());
 }
 
 void EXTI4_IRQHandler(void) {
     EXTI->PR = EXTI_PR_PR4;
-    log_buffer_process();
+    log_buffer_process_button(1, RightButtonStatus());
 }
 
 void EXTI9_5_IRQHandler(void) {
     EXTI->PR = EXTI_PR_PR5 | EXTI_PR_PR6;
-    log_buffer_process();
+    log_buffer_process_button(2, UpButtonStatus());
+    log_buffer_process_button(3, DownButtonStatus());
 }
 
 void EXTI15_10_IRQHandler(void) {
     EXTI->PR = EXTI_PR_PR10 | EXTI_PR_PR13;
-    log_buffer_process();
+    log_buffer_process_button(4, FireButtonStatus());
+    log_buffer_process_button(5, UserButtonStatus());
 }
 
 void DMA1_Stream6_IRQHandler() {
     uint32_t isr = DMA1->HISR;
     if (isr & DMA_HISR_TCIF6) {
         DMA1->HIFCR = DMA_HIFCR_CTCIF6;
-        GreenLEDon();
+        // if (!log_buffer_is_empty()) {
+        //     char message = log_buffer_pop();
+        //     log_buffer_force_send_message(message);
+        // }
     }
 }
