@@ -70,6 +70,8 @@
 #define USART_FlowControl_RTS USART_CR3_RTSE
 #define USART_FlowControl_CTS USART_CR3_CTSE
 
+#define USART_DMA_Rx_Tx (USART_CR3_DMAT | USART_CR3_DMAR)
+
 #define HSI_HZ 16000000U
 #define PCLK1_HZ HSI_HZ
 #define BAUD 9600U
@@ -148,7 +150,7 @@ char log_buffer_pop_next_byte() {
 }
 
 int main() {
-    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN | RCC_AHB1ENR_GPIOBEN | RCC_AHB1ENR_GPIOCEN;
+    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN | RCC_AHB1ENR_GPIOBEN | RCC_AHB1ENR_GPIOCEN | RCC_AHB1ENR_DMA1EN;
     RCC->APB1ENR |= RCC_APB1ENR_USART2EN;
     RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
 
@@ -198,10 +200,18 @@ int main() {
 
     USART2->CR1 = USART_Mode_Rx_Tx | USART_WordLength_8b | USART_Parity_No;
     USART2->CR2 = USART_StopBits_1;
-    USART2->CR3 = USART_FlowControl_None;
+    USART2->CR3 = USART_FlowControl_None | USART_DMA_Rx_Tx;
     USART2->BRR = (PCLK1_HZ + (BAUD / 2U)) / BAUD;
 
+    DMA1_Stream6->CR = 4u << 25 | DMA_SxCR_PL_1 | DMA_SxCR_MINC | DMA_SxCR_DIR_0 | DMA_SxCR_TCIE;
+    DMA1_Stream6->PAR = (uint32_t) &USART2->DR;
+    DMA1->HIFCR = DMA_HIFCR_CTCIF6;
+    NVIC_EnableIRQ(DMA1_Stream6_IRQn);
     USART2->CR1 |= USART_Enable;
+
+    DMA1_Stream6->M0AR = (uint32_t) "Hello, world!\r\n";
+    DMA1_Stream6->NDTR = 15;
+    DMA1_Stream6->CR |= DMA_SxCR_EN;
 
     GPIOinConfigure(LEFT_BUTTON_GPIO, LEFT_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
     GPIOinConfigure(UP_BUTTON_GPIO, UP_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
@@ -247,4 +257,12 @@ void EXTI9_5_IRQHandler(void) {
 void EXTI15_10_IRQHandler(void) {
     EXTI->PR = EXTI_PR_PR10 | EXTI_PR_PR13;
     log_buffer_process();
+}
+
+void DMA1_Stream6_IRQHandler() {
+    uint32_t isr = DMA1->HISR;
+    if (isr & DMA_HISR_TCIF6) {
+        DMA1->HIFCR = DMA_HIFCR_CTCIF6;
+        GreenLEDon();
+    }
 }
