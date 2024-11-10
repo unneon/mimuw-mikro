@@ -1,6 +1,7 @@
 #include <delay.h>
 #include <gpio.h>
 #include <stm32.h>
+#include <string.h>
 
 #define RED_LED_GPIO GPIOA
 #define GREEN_LED_GPIO GPIOA
@@ -162,6 +163,79 @@ void command_buffer_process(char new_char) {
     }
 }
 
+#define LOG_BUFFER_CAPACITY 8192
+
+typedef struct {
+    char data[LOG_BUFFER_CAPACITY];
+    int window_start;
+    int window_length;
+    int state[7];
+} LogBuffer;
+
+LogBuffer log_buffer = {
+    .window_start = 0,
+    .window_length = 0,
+    .state = {},
+};
+
+const char* const BUTTON_NAMES[7] = {
+    "LEFT",
+    "RIGHT",
+    "UP",
+    "DOWN",
+    "FIRE",
+    "USER",
+    "MODE",
+};
+
+void log_buffer_append_char(char character) {
+    log_buffer.data[(log_buffer.window_start + log_buffer.window_length) % LOG_BUFFER_CAPACITY] = character;
+    log_buffer.window_length = (log_buffer.window_length + 1) % LOG_BUFFER_CAPACITY;
+}
+
+void log_buffer_append(const char* button, const char* action) {
+    for (;*button;++button) {
+        log_buffer_append_char(*button);
+    }
+    log_buffer_append_char(' ');
+    for (;*action;++action) {
+        log_buffer_append_char(*action);
+    }
+    log_buffer_append_char('\r');
+    log_buffer_append_char('\n');
+}
+
+void log_buffer_process_button(int index, int new_state) {
+    if (!log_buffer.state[index] && new_state) {
+        log_buffer.state[index] = new_state;
+        log_buffer_append(BUTTON_NAMES[index], "PRESSED");
+    } else if (log_buffer.state[index] && !new_state) {
+        log_buffer.state[index] = new_state;
+        log_buffer_append(BUTTON_NAMES[index], "RELEASED");
+    }
+}
+
+void log_buffer_process() {
+    log_buffer_process_button(0, LeftButtonStatus());
+    log_buffer_process_button(1, RightButtonStatus());
+    log_buffer_process_button(2, UpButtonStatus());
+    log_buffer_process_button(3, DownButtonStatus());
+    log_buffer_process_button(4, FireButtonStatus());
+    log_buffer_process_button(5, UserButtonStatus());
+    log_buffer_process_button(6, ModeButtonStatus());
+}
+
+int log_buffer_has_unwritten() {
+    return log_buffer.window_length > 0;
+}
+
+char log_buffer_pop_next_byte() {
+    char character = log_buffer.data[log_buffer.window_start];
+    log_buffer.window_start = (log_buffer.window_start + 1) % LOG_BUFFER_CAPACITY;
+    log_buffer.window_length -= 1;
+    return character;
+}
+
 int main() {
     RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN | RCC_AHB1ENR_GPIOBEN | RCC_AHB1ENR_GPIOCEN;
     RCC->APB1ENR |= RCC_APB1ENR_USART2EN;
@@ -215,17 +289,14 @@ int main() {
     USART2->CR1 |= USART_Enable;
 
     for (;;) {
-        // if (USART2->SR & USART_SR_RXNE) {
-        //     char received_char = USART2->DR;
-        //     command_buffer_process(received_char);
-        // }
+        if (USART2->SR & USART_SR_RXNE) {
+            char received_char = USART2->DR;
+            command_buffer_process(received_char);
+        }
 
-        // set_led(0, UserButtonStatus());
-        // set_led(1, FireButtonStatus());
-        // set_led(2, ModeButtonStatus());
-        // set_led(0, LeftButtonStatus());
-        // set_led(1, RightButtonStatus());
-        // set_led(2, UpButtonStatus());
-        // set_led(0, DownButtonStatus());
+        log_buffer_process();
+        if (log_buffer_has_unwritten() && USART2->SR & USART_SR_TXE) {
+            USART2->DR = log_buffer_pop_next_byte();
+        }
     }
 }
