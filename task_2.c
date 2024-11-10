@@ -114,24 +114,21 @@ int main() {
 
     __NOP();
 
+    DMA1_Stream6->CR = 4u << 25 | DMA_SxCR_PL_1 | DMA_SxCR_MINC | DMA_SxCR_DIR_0 | DMA_SxCR_TCIE;
+    DMA1_Stream6->PAR = (uint32_t) &USART2->DR;
+    DMA1->HIFCR = DMA_HIFCR_CTCIF6;
+    NVIC_EnableIRQ(DMA1_Stream6_IRQn);
+
     GPIOafConfigure(GPIOA,
         2,
         GPIO_OType_PP,
         GPIO_Fast_Speed,
         GPIO_PuPd_NOPULL,
         GPIO_AF_USART2);
-
     USART2->CR1 = USART_CR1_TE;
     USART2->CR2 = 0;
     USART2->CR3 = USART_CR3_DMAT;
     USART2->BRR = (PCLK1_HZ + (BAUD / 2U)) / BAUD;
-
-    DMA1_Stream6->CR = 4u << 25 | DMA_SxCR_PL_1 | DMA_SxCR_MINC | DMA_SxCR_DIR_0 | DMA_SxCR_TCIE;
-    DMA1_Stream6->PAR = (uint32_t) &USART2->DR;
-    DMA1->HIFCR = DMA_HIFCR_CTCIF6;
-
-    NVIC_EnableIRQ(DMA1_Stream6_IRQn);
-
     USART2->CR1 |= USART_CR1_UE;
 
     GPIOinConfigure(LEFT_BUTTON_GPIO, LEFT_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
@@ -141,7 +138,6 @@ int main() {
     GPIOinConfigure(FIRE_BUTTON_GPIO, FIRE_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
     GPIOinConfigure(USER_BUTTON_GPIO, USER_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
     GPIOinConfigure(MODE_BUTTON_GPIO, MODE_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
-
     NVIC_EnableIRQ(EXTI3_IRQn);
     NVIC_EnableIRQ(EXTI4_IRQn);
     NVIC_EnableIRQ(EXTI9_5_IRQn);
