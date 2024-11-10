@@ -181,8 +181,7 @@ void EXTI0_IRQHandler(void) {
 }
 
 void DMA1_Stream6_IRQHandler() {
-    uint32_t isr = DMA1->HISR;
-    if (isr & DMA_HISR_TCIF6) {
+    if (DMA1->HISR & DMA_HISR_TCIF6) {
         DMA1->HIFCR = DMA_HIFCR_CTCIF6;
         if (!log_buffer_is_empty()) {
             char message = log_buffer_pop();
