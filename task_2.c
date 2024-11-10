@@ -91,14 +91,21 @@ LogBuffer log_buffer = {
     .state = {},
 };
 
-const char* const BUTTON_NAMES[7] = {
-    "LEFT",
-    "RIGHT",
-    "UP",
-    "DOWN",
-    "FIRE",
-    "USER",
-    "MODE",
+const char* const LOG_BUFFER_MESSAGES[14] = {
+    "LEFT PRESSED  \r\n",
+    "LEFT RELEASED \r\n",
+    "RIGHT PRESSED \r\n",
+    "RIGHT RELEASED\r\n",
+    "UP PRESSED    \r\n",
+    "UP RELEASED   \r\n",
+    "DOWN PRESSED  \r\n",
+    "DOWN RELEASED \r\n",
+    "FIRE PRESSED  \r\n",
+    "FIRE RELEASED \r\n",
+    "USER PRESSED  \r\n",
+    "USER RELEASED \r\n",
+    "MODE PRESSED  \r\n",
+    "MODE RELEASED \r\n",
 };
 
 void log_buffer_append_char(char character) {
@@ -106,25 +113,21 @@ void log_buffer_append_char(char character) {
     log_buffer.window_length = (log_buffer.window_length + 1) % LOG_BUFFER_CAPACITY;
 }
 
-void log_buffer_append(const char* button, const char* action) {
-    for (;*button;++button) {
-        log_buffer_append_char(*button);
+void log_buffer_append_message(int message_index) {
+    if ((DMA1_Stream6->CR & DMA_SxCR_EN) == 0 && (DMA1->HISR & DMA_HISR_TCIF6) == 0) {
+        DMA1_Stream6->M0AR = (uint32_t) LOG_BUFFER_MESSAGES[message_index];
+        DMA1_Stream6->NDTR = 16;
+        DMA1_Stream6->CR |= DMA_SxCR_EN;
     }
-    log_buffer_append_char(' ');
-    for (;*action;++action) {
-        log_buffer_append_char(*action);
-    }
-    log_buffer_append_char('\r');
-    log_buffer_append_char('\n');
 }
 
 void log_buffer_process_button(int index, int new_state) {
     if (!log_buffer.state[index] && new_state) {
         log_buffer.state[index] = new_state;
-        log_buffer_append(BUTTON_NAMES[index], "PRESSED");
+        log_buffer_append_message(2 * index);
     } else if (log_buffer.state[index] && !new_state) {
         log_buffer.state[index] = new_state;
-        log_buffer_append(BUTTON_NAMES[index], "RELEASED");
+        log_buffer_append_message(2 * index + 1);
     }
 }
 
@@ -209,10 +212,6 @@ int main() {
     NVIC_EnableIRQ(DMA1_Stream6_IRQn);
     USART2->CR1 |= USART_Enable;
 
-    DMA1_Stream6->M0AR = (uint32_t) "Hello, world!\r\n";
-    DMA1_Stream6->NDTR = 15;
-    DMA1_Stream6->CR |= DMA_SxCR_EN;
-
     GPIOinConfigure(LEFT_BUTTON_GPIO, LEFT_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
     GPIOinConfigure(UP_BUTTON_GPIO, UP_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
     GPIOinConfigure(RIGHT_BUTTON_GPIO, RIGHT_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
@@ -227,16 +226,13 @@ int main() {
     NVIC_EnableIRQ(EXTI0_IRQn);
 
     for (;;) {
-        if (log_buffer_has_unwritten() && USART2->SR & USART_SR_TXE) {
-            USART2->DR = log_buffer_pop_next_byte();
-        }
-        Delay(4000);
+        __NOP();
     }
 }
 
 void EXTI0_IRQHandler(void) {
     EXTI->PR = EXTI_PR_PR0;
-    log_buffer_process();
+    log_buffer_process_button(6, ModeButtonStatus());
 }
 
 void EXTI3_IRQHandler(void) {
