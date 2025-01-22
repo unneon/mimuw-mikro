@@ -84,8 +84,10 @@ int log_buffer_is_empty() {
 }
 
 void log_buffer_force_send_message(char message) {
-    DMA1_Stream6->M0AR = (uint32_t) LOG_BUFFER_MESSAGES[(int) message];
-    DMA1_Stream6->NDTR = 16;
+    // DMA1_Stream6->M0AR = (uint32_t) LOG_BUFFER_MESSAGES[(int) message];
+    // DMA1_Stream6->NDTR = 16;
+    DMA1_Stream6->M0AR = (uint32_t) "Hello, world!\r\n";
+    DMA1_Stream6->NDTR = 15;
     DMA1_Stream6->CR |= DMA_SxCR_EN;
 }
 
@@ -131,50 +133,52 @@ int main() {
     USART2->BRR = (PCLK1_HZ + (BAUD / 2U)) / BAUD;
     USART2->CR1 |= USART_CR1_UE;
 
-    GPIOinConfigure(LEFT_BUTTON_GPIO, LEFT_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
-    GPIOinConfigure(UP_BUTTON_GPIO, UP_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
-    GPIOinConfigure(RIGHT_BUTTON_GPIO, RIGHT_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
-    GPIOinConfigure(DOWN_BUTTON_GPIO, DOWN_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
-    GPIOinConfigure(FIRE_BUTTON_GPIO, FIRE_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
-    GPIOinConfigure(USER_BUTTON_GPIO, USER_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
-    GPIOinConfigure(MODE_BUTTON_GPIO, MODE_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
-    NVIC_EnableIRQ(EXTI3_IRQn);
-    NVIC_EnableIRQ(EXTI4_IRQn);
-    NVIC_EnableIRQ(EXTI9_5_IRQn);
-    NVIC_EnableIRQ(EXTI15_10_IRQn);
-    NVIC_EnableIRQ(EXTI0_IRQn);
+    log_buffer_try_send_message(0);
+
+    // GPIOinConfigure(LEFT_BUTTON_GPIO, LEFT_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
+    // GPIOinConfigure(UP_BUTTON_GPIO, UP_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
+    // GPIOinConfigure(RIGHT_BUTTON_GPIO, RIGHT_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
+    // GPIOinConfigure(DOWN_BUTTON_GPIO, DOWN_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
+    // GPIOinConfigure(FIRE_BUTTON_GPIO, FIRE_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
+    // GPIOinConfigure(USER_BUTTON_GPIO, USER_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
+    // GPIOinConfigure(MODE_BUTTON_GPIO, MODE_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
+    // NVIC_EnableIRQ(EXTI3_IRQn);
+    // NVIC_EnableIRQ(EXTI4_IRQn);
+    // NVIC_EnableIRQ(EXTI9_5_IRQn);
+    // NVIC_EnableIRQ(EXTI15_10_IRQn);
+    // NVIC_EnableIRQ(EXTI0_IRQn);
 
     for (;;) {
         __NOP();
     }
 }
 
-void EXTI3_IRQHandler(void) {
-    EXTI->PR = EXTI_PR_PR3;
-    log_buffer_process_button(0, LeftButtonStatus());
-}
+// void EXTI3_IRQHandler(void) {
+//     EXTI->PR = EXTI_PR_PR3;
+//     log_buffer_process_button(0, LeftButtonStatus());
+// }
 
-void EXTI4_IRQHandler(void) {
-    EXTI->PR = EXTI_PR_PR4;
-    log_buffer_process_button(1, RightButtonStatus());
-}
+// void EXTI4_IRQHandler(void) {
+//     EXTI->PR = EXTI_PR_PR4;
+//     log_buffer_process_button(1, RightButtonStatus());
+// }
 
-void EXTI9_5_IRQHandler(void) {
-    EXTI->PR = EXTI_PR_PR5 | EXTI_PR_PR6;
-    log_buffer_process_button(2, UpButtonStatus());
-    log_buffer_process_button(3, DownButtonStatus());
-}
+// void EXTI9_5_IRQHandler(void) {
+//     EXTI->PR = EXTI_PR_PR5 | EXTI_PR_PR6;
+//     log_buffer_process_button(2, UpButtonStatus());
+//     log_buffer_process_button(3, DownButtonStatus());
+// }
 
-void EXTI15_10_IRQHandler(void) {
-    EXTI->PR = EXTI_PR_PR10 | EXTI_PR_PR13;
-    log_buffer_process_button(4, FireButtonStatus());
-    log_buffer_process_button(5, UserButtonStatus());
-}
+// void EXTI15_10_IRQHandler(void) {
+//     EXTI->PR = EXTI_PR_PR10 | EXTI_PR_PR13;
+//     log_buffer_process_button(4, FireButtonStatus());
+//     log_buffer_process_button(5, UserButtonStatus());
+// }
 
-void EXTI0_IRQHandler(void) {
-    EXTI->PR = EXTI_PR_PR0;
-    log_buffer_process_button(6, ModeButtonStatus());
-}
+// void EXTI0_IRQHandler(void) {
+//     EXTI->PR = EXTI_PR_PR0;
+//     log_buffer_process_button(6, ModeButtonStatus());
+// }
 
 void DMA1_Stream6_IRQHandler() {
     if (DMA1->HISR & DMA_HISR_TCIF6) {
