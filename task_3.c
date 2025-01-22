@@ -28,9 +28,8 @@
 #define ModeButtonStatus() ((MODE_BUTTON_GPIO->IDR & (1 << MODE_BUTTON_PIN)) != 0)
 
 int main() {
-    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN | RCC_AHB1ENR_GPIOBEN | RCC_AHB1ENR_GPIOCEN | RCC_AHB1ENR_DMA1EN;
-    RCC->APB1ENR |= RCC_APB1ENR_USART2EN;
-    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN | RCC_AHB1ENR_GPIOBEN;
+    RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
 
     __NOP();
 
@@ -38,35 +37,39 @@ int main() {
     GreenLEDoff();
     BlueLEDoff();
 
-    GPIOoutConfigure(RED_LED_GPIO,
-        RED_LED_PIN,
-        GPIO_OType_PP,
-        GPIO_Low_Speed,
-        GPIO_PuPd_NOPULL);
-    GPIOoutConfigure(GREEN_LED_GPIO,
-        GREEN_LED_PIN,
-        GPIO_OType_PP,
-        GPIO_Low_Speed,
-        GPIO_PuPd_NOPULL);
-    GPIOoutConfigure(BLUE_LED_GPIO,
-        BLUE_LED_PIN,
-        GPIO_OType_PP,
-        GPIO_Low_Speed,
-        GPIO_PuPd_NOPULL);
+    GPIOoutConfigure(RED_LED_GPIO, RED_LED_PIN, GPIO_OType_PP, GPIO_Low_Speed, GPIO_PuPd_NOPULL);
+    GPIOoutConfigure(GREEN_LED_GPIO, GREEN_LED_PIN, GPIO_OType_PP, GPIO_Low_Speed, GPIO_PuPd_NOPULL);
+    GPIOoutConfigure(BLUE_LED_GPIO, BLUE_LED_PIN, GPIO_OType_PP, GPIO_Low_Speed, GPIO_PuPd_NOPULL);
 
-    GPIOinConfigure(MODE_BUTTON_GPIO, MODE_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
-    NVIC_EnableIRQ(EXTI0_IRQn);
+    GPIOafConfigure(GPIOA, 6, GPIO_OType_PP, GPIO_Low_Speed, GPIO_PuPd_NOPULL, GPIO_AF_TIM3);
+    GPIOafConfigure(GPIOA, 7, GPIO_OType_PP, GPIO_Low_Speed, GPIO_PuPd_NOPULL, GPIO_AF_TIM3);
+
+    // TIM3->PSC = 63999;
+    TIM3->PSC = 1;
+    TIM3->ARR = 749;
+    TIM3->EGR = TIM_EGR_UG;
+    TIM3->CCR1 = 2;
+    TIM3->CCR2 = 748;
+    TIM3->CCMR1 = TIM_CCMR1_OC1M_2 | TIM_CCMR1_OC1M_1
+        | TIM_CCMR1_OC1PE
+        | TIM_CCMR1_OC2M_2 | TIM_CCMR1_OC2M_1 | TIM_CCMR1_OC2M_0
+        | TIM_CCMR1_OC2PE;
+    TIM3->CCER = TIM_CCER_CC1E | TIM_CCER_CC1P | TIM_CCER_CC2E | TIM_CCER_CC2P;
+    TIM3->CR1 = TIM_CR1_ARPE | TIM_CR1_CEN;
+
+    // GPIOinConfigure(MODE_BUTTON_GPIO, MODE_BUTTON_PIN, GPIO_PuPd_UP, EXTI_Mode_Interrupt, EXTI_Trigger_Rising_Falling);
+    // NVIC_EnableIRQ(EXTI0_IRQn);
 
     for (;;) {
         __NOP();
     }
 }
 
-void EXTI0_IRQHandler(void) {
-    EXTI->PR = EXTI_PR_PR0;
-    if (ModeButtonStatus()) {
-        RedLEDon();
-    } else {
-        RedLEDoff();
-    }
-}
+// void EXTI0_IRQHandler(void) {
+//     EXTI->PR = EXTI_PR_PR0;
+//     if (ModeButtonStatus()) {
+//         RedLEDon();
+//     } else {
+//         RedLEDoff();
+//     }
+// }
