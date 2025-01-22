@@ -18,14 +18,26 @@
 
 #define PCLK1_MHZ 16
 
-#define LIS35DE_ADDR 0x1C
+#define LIS35DE_I2C_ADDR 0x1C
+#define LIS35DE_CTRL1REG 0x20
+#define LIS35DE_CTRL1REG_PD (1 << 6)
+#define LIS35DE_CTRL1REG_ZEN (1 << 2)
+#define LIS35DE_CTRL1REG_YEN (1 << 1)
+#define LIS35DE_CTRL1REG_XEN (1 << 0)
+#define LIS35DE_OUTX 0x29
+#define LIS35DE_OUTY 0x2B
+#define LIS35DE_OUTZ 0x2D
 
 #define WAIT_FOR(condition) while (!(condition)) {}
 
-void accelerometer_write_register(int register_number, int value) {
+static int abs(int x) {
+    return x < 0 ? -x : x;
+}
+
+static void accelerometer_write_register(int register_number, int value) {
     I2C1->CR1 |= I2C_CR1_START;
     WAIT_FOR(I2C1->SR1 & I2C_SR1_SB);
-    I2C1->DR = LIS35DE_ADDR << 1;
+    I2C1->DR = LIS35DE_I2C_ADDR << 1;
     WAIT_FOR(I2C1->SR1 & I2C_SR1_ADDR);
     I2C1->SR2;
 
@@ -36,10 +48,10 @@ void accelerometer_write_register(int register_number, int value) {
     I2C1->CR1 |= I2C_CR1_STOP;
 }
 
-int accelerometer_read_register(int register_number) {
+static int accelerometer_read_register(int register_number) {
     I2C1->CR1 |= I2C_CR1_START;
     WAIT_FOR(I2C1->SR1 & I2C_SR1_SB);
-    I2C1->DR = LIS35DE_ADDR << 1;
+    I2C1->DR = LIS35DE_I2C_ADDR << 1;
     WAIT_FOR(I2C1->SR1 & I2C_SR1_ADDR);
     I2C1->SR2;
     I2C1->DR = register_number;
@@ -47,7 +59,7 @@ int accelerometer_read_register(int register_number) {
 
     I2C1->CR1 |= I2C_CR1_START;
     WAIT_FOR(I2C1->SR1 & I2C_SR1_SB);
-    I2C1->DR = LIS35DE_ADDR << 1 | 1;
+    I2C1->DR = LIS35DE_I2C_ADDR << 1 | 1;
     I2C1->CR1 &= ~I2C_CR1_ACK;
     WAIT_FOR(I2C1->SR1 & I2C_SR1_ADDR);
     I2C1->SR2;
@@ -70,8 +82,8 @@ int main() {
     GPIOafConfigure(I2C_SCL_GPIO, I2C_SCL_PIN, GPIO_OType_OD, GPIO_Low_Speed, GPIO_PuPd_NOPULL, GPIO_AF_I2C1);
     GPIOafConfigure(I2C_SDA_GPIO, I2C_SDA_PIN, GPIO_OType_OD, GPIO_Low_Speed, GPIO_PuPd_NOPULL, GPIO_AF_I2C1);
 
-    TIM3->PSC = 1;
-    TIM3->ARR = 100;
+    TIM3->PSC = 1000;
+    TIM3->ARR = 250;
     TIM3->EGR = TIM_EGR_UG;
     TIM3->CCR1 = 0;
     TIM3->CCR2 = 0;
@@ -90,10 +102,13 @@ int main() {
     I2C1->TRISE = PCLK1_MHZ + 1;
     I2C1->CR1 |= I2C_CR1_PE;
 
-    accelerometer_write_register(0x20, 1 << 6);
+    accelerometer_write_register(LIS35DE_CTRL1REG, LIS35DE_CTRL1REG_PD
+        | LIS35DE_CTRL1REG_XEN | LIS35DE_CTRL1REG_YEN | LIS35DE_CTRL1REG_ZEN);
 
     for (;;) {
-        TIM3->CCR1 = accelerometer_read_register(0x29);
+        TIM3->CCR1 = abs(accelerometer_read_register(LIS35DE_OUTX));
+        // TIM3->CCR2 = abs(accelerometer_read_register(LIS35DE_OUTY));
+        // TIM3->CCR3 = abs(accelerometer_read_register(LIS35DE_OUTZ));
     }
 }
 
