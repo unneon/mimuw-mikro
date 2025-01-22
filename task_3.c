@@ -4,11 +4,10 @@
 #include <string.h>
 
 #define RED_LED_GPIO GPIOA
-#define GREEN_LED_GPIO GPIOA
-#define BLUE_LED_GPIO GPIOB
-
 #define RED_LED_PIN 6
+#define GREEN_LED_GPIO GPIOA
 #define GREEN_LED_PIN 7
+#define BLUE_LED_GPIO GPIOB
 #define BLUE_LED_PIN 0
 
 int main() {
