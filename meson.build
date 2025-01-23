@@ -2,15 +2,22 @@ project(
     'mimuw_mikro',
     'c',
     default_options: [
+        'debug=false',
+        'optimization=s',
         'c_std=c23',
         'warning_level=2'
     ]
 )
 
-objcopy = find_program('arm-none-eabi-objcopy')
+objcopy = find_program('objcopy')
 
-sources = [
-    'task_3.c',
+targets = [
+    'small_1',
+    'small_2',
+    'small_3'
+]
+
+stm32_sources = [
     'stm32/src/startup_stm32.c',
     'stm32/src/delay.c',
     'stm32/src/gpio.c'
@@ -40,16 +47,18 @@ link_args = [
     '-Tstm32f411re.lds'
 ] + shared_args
 
-task_3_elf = executable('task_3_elf',
-    sources,
-    c_args: c_args,
-    include_directories: inc_dirs,
-    link_args: link_args,
-)
+foreach target : targets
+    elf = executable(target + '_elf',
+        [target + '.c'] + stm32_sources,
+        c_args: c_args,
+        include_directories: inc_dirs,
+        link_args: link_args,
+    )
 
-custom_target('task_3',
-    input: task_3_elf,
-    output: 'task_3.bin',
-    command: [objcopy, '-O', 'binary', '@INPUT@', '@OUTPUT@'],
-    build_by_default: true
-)
+    custom_target(target,
+        input: elf,
+        output: target + '.bin',
+        command: [objcopy, '-O', 'binary', '@INPUT@', '@OUTPUT@'],
+        build_by_default: true
+    )
+endforeach

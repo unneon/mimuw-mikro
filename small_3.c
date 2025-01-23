@@ -1,7 +1,6 @@
 #include <delay.h>
 #include <gpio.h>
 #include <stm32.h>
-#include <string.h>
 
 #define RED_LED_GPIO GPIOA
 #define RED_LED_PIN 6
