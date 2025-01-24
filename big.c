@@ -108,7 +108,7 @@ static unsigned accelerometer_read_register(unsigned register_number) {
     I2C1->CR1 |= I2C_CR1_STOP;
     WAIT_FOR(I2C1->SR1 & I2C_SR1_RXNE);
 
-    return *(signed char*)(&I2C1->DR);
+    return I2C1->DR;
 }
 
 static void accelerometer_initialize(void) {
