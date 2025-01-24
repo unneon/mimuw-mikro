@@ -1,3 +1,5 @@
+// https://www.st.com/resource/en/datasheet/lis35de.pdf
+
 #pragma once
 
 #define LIS35DE_CTRL1 0x20
@@ -19,6 +21,12 @@
 #define LIS35DE_CLICKCFG_SINGLEX (1 << 0)
 
 #define LIS35DE_CLICKSRC 0x39
+#define LIS35DE_CLICKSRC_DOUBLEZ (1 << 5)
+#define LIS35DE_CLICKSRC_SINGLEZ (1 << 4)
+#define LIS35DE_CLICKSRC_DOUBLEY (1 << 3)
+#define LIS35DE_CLICKSRC_SINGLEY (1 << 2)
+#define LIS35DE_CLICKSRC_DOUBLEX (1 << 1)
+#define LIS35DE_CLICKSRC_SINGLEX (1 << 0)
 
 #define LIS35DE_CLICKTIMELIMIT 0x3D
 

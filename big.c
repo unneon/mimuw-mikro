@@ -64,6 +64,40 @@ static void timer_initialize(void) {
     NVIC_EnableIRQ(TIM3_IRQn);
 }
 
+static void timer_1_start(void) {
+    TIM3->CCR1 = TIM3->CNT + 750;
+    TIM3->DIER |= TIM_DIER_CC1IE;
+}
+
+static void timer_1_stop(void) {
+    TIM3->DIER &= ~TIM_DIER_CC1IE;
+}
+
+static void timer_1_extend(void) {
+    TIM3->CCR1 = (TIM3->CCR1 + 750) % (1 << 16);
+}
+
+static int timer_1_is_active(void) {
+    return (TIM3->DIER & TIM_DIER_CC1IE) != 0;
+}
+
+static void timer_2_start(void) {
+    TIM3->CCR2 = TIM3->CNT + 750;
+    TIM3->DIER |= TIM_DIER_CC2IE;
+}
+
+static void timer_2_stop(void) {
+    TIM3->DIER &= ~TIM_DIER_CC2IE;
+}
+
+static void timer_2_extend(void) {
+    TIM3->CCR2 = (TIM3->CCR2 + 750) % (1 << 16);
+}
+
+static int timer_2_is_active(void) {
+    return (TIM3->DIER & TIM_DIER_CC2IE) != 0;
+}
+
 static void i2c_initialize(void) {
     GPIOafConfigure(I2C_SCL_GPIO, I2C_SCL_PIN, GPIO_OType_OD, GPIO_Low_Speed, GPIO_PuPd_NOPULL, GPIO_AF_I2C1);
     GPIOafConfigure(I2C_SDA_GPIO, I2C_SDA_PIN, GPIO_OType_OD, GPIO_Low_Speed, GPIO_PuPd_NOPULL, GPIO_AF_I2C1);
@@ -112,15 +146,30 @@ static unsigned accelerometer_read_register(unsigned register_number) {
 }
 
 static void accelerometer_initialize(void) {
-    accelerometer_write_register(LIS35DE_CTRL1, LIS35DE_CTRL1_PD | LIS35DE_CTRL1_XEN | LIS35DE_CTRL1_YEN | LIS35DE_CTRL1_ZEN);
+    accelerometer_write_register(LIS35DE_CTRL1, LIS35DE_CTRL1_PD
+        | LIS35DE_CTRL1_XEN | LIS35DE_CTRL1_YEN | LIS35DE_CTRL1_ZEN);
     accelerometer_write_register(LIS35DE_CTRL3, LIS35DE_CTRL3_I1CFG_CLICK);
-    accelerometer_write_register(LIS35DE_CLICKCFG, LIS35DE_CLICKCFG_SINGLEZ | LIS35DE_CLICKCFG_SINGLEY | LIS35DE_CLICKCFG_SINGLEX);
+    accelerometer_write_register(LIS35DE_CLICKCFG, LIS35DE_CLICKCFG_LIR
+        | LIS35DE_CLICKCFG_DOUBLEZ | LIS35DE_CLICKCFG_DOUBLEY | LIS35DE_CLICKCFG_DOUBLEX
+        | LIS35DE_CLICKCFG_SINGLEZ | LIS35DE_CLICKCFG_SINGLEY | LIS35DE_CLICKCFG_SINGLEX);
     accelerometer_write_register(LIS35DE_CLICKTIMELIMIT, UINT8_MAX);
     accelerometer_write_register(LIS35DE_CLICKLATENCY, UINT8_MAX);
     accelerometer_write_register(LIS35DE_CLICKWINDOW, UINT8_MAX);
 
     GPIOinConfigure(LIS35DE_INT1_GPIO, LIS35DE_INT1_PIN, GPIO_PuPd_NOPULL, EXTI_Mode_Interrupt, EXTI_Trigger_Rising);
     NVIC_EnableIRQ(EXTI1_IRQn);
+}
+
+static unsigned accelerometer_read_click(void) {
+    return accelerometer_read_register(LIS35DE_CLICKSRC);
+}
+
+static int accelerometer_contains_single_click(unsigned click_source) {
+    return (click_source & (LIS35DE_CLICKSRC_SINGLEX | LIS35DE_CLICKSRC_SINGLEY | LIS35DE_CLICKSRC_SINGLEZ)) != 0;
+}
+
+static int accelerometer_contains_double_click(unsigned click_source) {
+    return (click_source & (LIS35DE_CLICKSRC_DOUBLEX | LIS35DE_CLICKSRC_DOUBLEY | LIS35DE_CLICKSRC_DOUBLEZ)) != 0;
 }
 
 int main(void) {
@@ -141,18 +190,37 @@ int main(void) {
 void EXTI1_IRQHandler(void) {
     EXTI->PR = EXTI_PR_PR1;
 
-    if ((TIM3->DIER & TIM_DIER_CC1IE) == 0) {
-        TIM3->DIER = TIM_DIER_CC1IE;
-        TIM3->CCR1 = TIM3->CNT + 750;
-        led_red_on();
-    } else {
-        TIM3->CCR1 = (TIM3->CCR1 + 750) % (1 << 16);
+    unsigned click_source = accelerometer_read_click();
+
+    if (accelerometer_contains_single_click(click_source)) {
+        if (!timer_1_is_active()) {
+            timer_1_start();
+            led_red_on();
+        } else {
+            timer_1_extend();
+        }
+    }
+
+    if (accelerometer_contains_double_click(click_source)) {
+        if (!timer_2_is_active()) {
+            timer_2_start();
+            led_green_on();
+        } else {
+            timer_2_extend();
+        }
     }
 }
 
 void TIM3_IRQHandler(void) {
-    TIM3->SR = ~TIM_SR_CC1IF;
+    if (TIM3->SR & TIM_SR_CC1IF) {
+        timer_1_stop();
+        led_red_off();
+        TIM3->SR = ~TIM_SR_CC1IF;
+    }
 
-    TIM3->DIER &= ~TIM_DIER_CC1IE;
-    led_red_off();
+    if (TIM3->SR & TIM_SR_CC2IF) {
+        timer_2_stop();
+        led_green_off();
+        TIM3->SR = ~TIM_SR_CC2IF;
+    }
 }
