@@ -20,7 +20,6 @@ targets = [
 
 stm32_sources = [
     'stm32/src/startup_stm32.c',
-    'stm32/src/delay.c',
     'stm32/src/gpio.c',
 ]
 
