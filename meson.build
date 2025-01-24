@@ -15,6 +15,7 @@ targets = [
     'small_1',
     'small_2',
     'small_3',
+    'big',
 ]
 
 stm32_sources = [
