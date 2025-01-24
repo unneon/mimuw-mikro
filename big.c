@@ -64,6 +64,10 @@ static void timer_initialize(void) {
     NVIC_EnableIRQ(TIM3_IRQn);
 }
 
+// TODO: Document how timers work in this program?
+
+// TODO: Extract 750 (750 timer ticks = 3 seconds) to a constant.
+
 static void timer_1_start(void) {
     TIM3->CCR1 = TIM3->CNT + 750;
     TIM3->DIER |= TIM_DIER_CC1IE;
@@ -74,7 +78,7 @@ static void timer_1_stop(void) {
 }
 
 static void timer_1_extend(void) {
-    TIM3->CCR1 = (TIM3->CCR1 + 750) % (1 << 16);
+    TIM3->CCR1 = (TIM3->CCR1 + 750) % UINT16_MAX;
 }
 
 static int timer_1_is_active(void) {
@@ -91,7 +95,7 @@ static void timer_2_stop(void) {
 }
 
 static void timer_2_extend(void) {
-    TIM3->CCR2 = (TIM3->CCR2 + 750) % (1 << 16);
+    TIM3->CCR2 = (TIM3->CCR2 + 750) % UINT16_MAX;
 }
 
 static int timer_2_is_active(void) {
@@ -108,6 +112,10 @@ static void i2c_initialize(void) {
     I2C1->TRISE = PCLK1_MHZ + 1;
     I2C1->CR1 |= I2C_CR1_PE;
 }
+
+// TODO: Communicate over I2C using interrupts.
+
+// TODO: Document I2C error handling.
 
 static void accelerometer_write_register(unsigned register_number, unsigned value) {
     I2C1->CR1 |= I2C_CR1_START;
@@ -152,6 +160,7 @@ static void accelerometer_initialize(void) {
     accelerometer_write_register(LIS35DE_CLICKCFG, LIS35DE_CLICKCFG_LIR
         | LIS35DE_CLICKCFG_DOUBLEZ | LIS35DE_CLICKCFG_DOUBLEY | LIS35DE_CLICKCFG_DOUBLEX
         | LIS35DE_CLICKCFG_SINGLEZ | LIS35DE_CLICKCFG_SINGLEY | LIS35DE_CLICKCFG_SINGLEX);
+    // TODO: Investigate what these numbers actually do.
     accelerometer_write_register(LIS35DE_CLICKTIMELIMIT, UINT8_MAX);
     accelerometer_write_register(LIS35DE_CLICKLATENCY, UINT8_MAX);
     accelerometer_write_register(LIS35DE_CLICKWINDOW, UINT8_MAX);
@@ -184,13 +193,21 @@ int main(void) {
     i2c_initialize();
     accelerometer_initialize();
 
+    // TODO: Enter shallow sleep while LEDs are active, and deep sleep otherwise.
+
     for (;;);
 }
+
+// TODO: Document interrupt priorities being the same.
+
+// TODO: Document latching and clearing interrupt flags in both handlers.
 
 void EXTI1_IRQHandler(void) {
     EXTI->PR = EXTI_PR_PR1;
 
     unsigned click_source = accelerometer_read_click();
+
+    // TODO: Figure out how to handle multiple clicks in a single interrupt.
 
     if (accelerometer_contains_single_click(click_source)) {
         if (!timer_1_is_active()) {
