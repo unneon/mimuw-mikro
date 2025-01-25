@@ -2,6 +2,8 @@
 
 #pragma once
 
+#define LIS35DE_AUTOINCREMENT (1 << 7)
+
 #define LIS35DE_CTRL1 0x20
 #define LIS35DE_CTRL1_PD (1 << 6)
 #define LIS35DE_CTRL1_ZEN (1 << 2)

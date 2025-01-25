@@ -2,8 +2,8 @@ project(
     'mimuw_mikro',
     'c',
     default_options: [
-        'debug=false',
-        'optimization=s',
+        'debug=true',
+        'optimization=0',
         'c_std=c23',
         'warning_level=2',
     ],

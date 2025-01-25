@@ -111,11 +111,48 @@ static void i2c_initialize(void) {
     I2C1->CR2 = PCLK1_MHZ;
     I2C1->TRISE = PCLK1_MHZ + 1;
     I2C1->CR1 |= I2C_CR1_PE;
+
+    NVIC_EnableIRQ(I2C1_EV_IRQn);
 }
 
 // TODO: Communicate over I2C using interrupts.
 
 // TODO: Document I2C error handling.
+
+struct I2cState {
+    unsigned address;
+    const unsigned char* data;
+    unsigned length;
+    void(*on_finish)(void);
+};
+
+static struct I2cState global_i2c_state;
+
+static void i2c_write(unsigned address, const unsigned char* data, unsigned length, void(*on_finish)(void)) {
+    global_i2c_state.address = address;
+    global_i2c_state.data = data;
+    global_i2c_state.length = length;
+    global_i2c_state.on_finish = on_finish;
+    I2C1->CR2 |= I2C_CR2_ITBUFEN | I2C_CR2_ITEVTEN;
+    I2C1->CR1 |= I2C_CR1_START;
+}
+
+void I2C1_EV_IRQHandler(void) {
+    if (I2C1->SR1 & I2C_SR1_SB) {
+        I2C1->DR = global_i2c_state.address << 1;
+    } else if (global_i2c_state.length > 0 && I2C1->SR1 & I2C_SR1_ADDR) {
+        I2C1->SR2;
+        I2C1->DR = *global_i2c_state.data++;
+        --global_i2c_state.length;
+    } else if (global_i2c_state.length > 0 && I2C1->SR1 & I2C_SR1_TXE) {
+        I2C1->DR = *global_i2c_state.data++;
+        --global_i2c_state.length;
+    } else if (global_i2c_state.length == 0 && I2C1->SR1 & I2C_SR1_BTF) {
+        I2C1->CR1 |= I2C_CR1_STOP;
+        I2C1->CR2 &= ~(I2C_CR2_ITBUFEN | I2C_CR2_ITEVTEN);
+        global_i2c_state.on_finish();
+    }
+}
 
 static void accelerometer_write_register(unsigned register_number, unsigned value) {
     I2C1->CR1 |= I2C_CR1_START;
@@ -153,10 +190,37 @@ static unsigned accelerometer_read_register(unsigned register_number) {
     return I2C1->DR;
 }
 
-static void accelerometer_initialize(void) {
-    accelerometer_write_register(LIS35DE_CTRL1, LIS35DE_CTRL1_PD
-        | LIS35DE_CTRL1_XEN | LIS35DE_CTRL1_YEN | LIS35DE_CTRL1_ZEN);
-    accelerometer_write_register(LIS35DE_CTRL3, LIS35DE_CTRL3_I1CFG_CLICK);
+static constexpr unsigned char ACCELEROMETER_INITSEQ_1[4] = {
+    LIS35DE_CTRL1 | LIS35DE_AUTOINCREMENT,
+    LIS35DE_CTRL1_PD
+        | LIS35DE_CTRL1_XEN | LIS35DE_CTRL1_YEN | LIS35DE_CTRL1_ZEN,
+    0,
+    LIS35DE_CTRL3_I1CFG_CLICK,
+};
+
+static constexpr unsigned char ACCELEROMETER_INITSEQ_2[2] = {
+    LIS35DE_CLICKCFG,
+    LIS35DE_CLICKCFG_LIR
+        | LIS35DE_CLICKCFG_DOUBLEZ | LIS35DE_CLICKCFG_DOUBLEY | LIS35DE_CLICKCFG_DOUBLEX
+        | LIS35DE_CLICKCFG_SINGLEZ | LIS35DE_CLICKCFG_SINGLEY | LIS35DE_CLICKCFG_SINGLEX,
+};
+
+static void accelerometer_initialize_1(void);
+static void accelerometer_initialize_2(void);
+static void accelerometer_initialize_3(void);
+
+static void accelerometer_initialize_1(void) {
+    i2c_write(LIS35DE_I2C_ADDR, ACCELEROMETER_INITSEQ_1, 4, accelerometer_initialize_3);
+}
+
+// static void accelerometer_initialize_2(void) {
+    // i2c_write(LIS35DE_I2C_ADDR, ACCELEROMETER_INITSEQ_2, 2, accelerometer_initialize_3);
+// }
+
+static void accelerometer_initialize_3(void) {
+    // accelerometer_write_register(LIS35DE_CTRL1, LIS35DE_CTRL1_PD
+    //     | LIS35DE_CTRL1_XEN | LIS35DE_CTRL1_YEN | LIS35DE_CTRL1_ZEN);
+    // accelerometer_write_register(LIS35DE_CTRL3, LIS35DE_CTRL3_I1CFG_CLICK);
     accelerometer_write_register(LIS35DE_CLICKCFG, LIS35DE_CLICKCFG_LIR
         | LIS35DE_CLICKCFG_DOUBLEZ | LIS35DE_CLICKCFG_DOUBLEY | LIS35DE_CLICKCFG_DOUBLEX
         | LIS35DE_CLICKCFG_SINGLEZ | LIS35DE_CLICKCFG_SINGLEY | LIS35DE_CLICKCFG_SINGLEX);
@@ -191,7 +255,7 @@ int main(void) {
     led_initialize();
     timer_initialize();
     i2c_initialize();
-    accelerometer_initialize();
+    accelerometer_initialize_1();
 
     // TODO: Enter shallow sleep while LEDs are active, and deep sleep otherwise.
 
