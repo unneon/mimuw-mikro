@@ -26,10 +26,20 @@ struct I2cState {
     unsigned address;
     const unsigned char* write_data;
     unsigned write_length;
+    unsigned char* read_data;
+    unsigned read_length;
+    int read_started;
     void(*on_finish)(void);
 };
 
 static struct I2cState global_i2c_state;
+static unsigned char global_click_source;
+
+static void accelerometer_initialize_1(void);
+static void accelerometer_initialize_2(void);
+static void accelerometer_initialize_3(void);
+static void accelerometer_initialize_4(void);
+static void on_read_clicksrc(void);
 
 static void led_red_on(void) {
     LED_RED_GPIO->BSRR = 1 << (LED_RED_PIN + 16);
@@ -126,35 +136,23 @@ static void i2c_initialize(void) {
 
 // TODO: Document I2C error handling.
 
-static void i2c_write(unsigned address, const unsigned char* write_data, unsigned write_length, void(*on_finish)(void)) {
+static void i2c_write_read(
+    unsigned address,
+    const unsigned char* write_data,
+    unsigned write_length,
+    unsigned char* read_data,
+    unsigned read_length,
+    void(*on_finish)(void)
+) {
     global_i2c_state.address = address;
     global_i2c_state.write_data = write_data;
     global_i2c_state.write_length = write_length;
+    global_i2c_state.read_data = read_data;
+    global_i2c_state.read_length = read_length;
+    global_i2c_state.read_started = 0;
     global_i2c_state.on_finish = on_finish;
     I2C1->CR2 |= I2C_CR2_ITBUFEN;
     I2C1->CR1 |= I2C_CR1_START;
-}
-
-static unsigned accelerometer_read_register(unsigned register_number) {
-    I2C1->CR1 |= I2C_CR1_START;
-    WAIT_FOR(I2C1->SR1 & I2C_SR1_SB);
-    I2C1->DR = LIS35DE_I2C_ADDR << 1;
-    WAIT_FOR(I2C1->SR1 & I2C_SR1_ADDR);
-    I2C1->SR2;
-    I2C1->DR = register_number;
-    WAIT_FOR(I2C1->SR1 & I2C_SR1_BTF);
-
-    I2C1->CR1 |= I2C_CR1_START;
-    WAIT_FOR(I2C1->SR1 & I2C_SR1_SB);
-    I2C1->DR = (LIS35DE_I2C_ADDR << 1) | 1;
-    I2C1->CR1 &= ~I2C_CR1_ACK;
-    WAIT_FOR(I2C1->SR1 & I2C_SR1_ADDR);
-    I2C1->SR2;
-
-    I2C1->CR1 |= I2C_CR1_STOP;
-    WAIT_FOR(I2C1->SR1 & I2C_SR1_RXNE);
-
-    return I2C1->DR;
 }
 
 static constexpr unsigned char ACCELEROMETER_INITSEQ_1[4] = {
@@ -182,30 +180,21 @@ static constexpr unsigned char ACCELEROMETER_INITSEQ_3[6] = {
     UINT8_MAX,
 };
 
-static void accelerometer_initialize_1(void);
-static void accelerometer_initialize_2(void);
-static void accelerometer_initialize_3(void);
-static void accelerometer_initialize_4(void);
-
 static void accelerometer_initialize_1(void) {
-    i2c_write(LIS35DE_I2C_ADDR, ACCELEROMETER_INITSEQ_1, 4, accelerometer_initialize_2);
+    i2c_write_read(LIS35DE_I2C_ADDR, ACCELEROMETER_INITSEQ_1, 4, nullptr, 0, accelerometer_initialize_2);
 }
 
 static void accelerometer_initialize_2(void) {
-    i2c_write(LIS35DE_I2C_ADDR, ACCELEROMETER_INITSEQ_2, 2, accelerometer_initialize_3);
+    i2c_write_read(LIS35DE_I2C_ADDR, ACCELEROMETER_INITSEQ_2, 2, nullptr, 0, accelerometer_initialize_3);
 }
 
 static void accelerometer_initialize_3(void) {
-    i2c_write(LIS35DE_I2C_ADDR, ACCELEROMETER_INITSEQ_3, 6, accelerometer_initialize_4);
+    i2c_write_read(LIS35DE_I2C_ADDR, ACCELEROMETER_INITSEQ_3, 6, nullptr, 0, accelerometer_initialize_4);
 }
 
 static void accelerometer_initialize_4(void) {
     GPIOinConfigure(LIS35DE_INT1_GPIO, LIS35DE_INT1_PIN, GPIO_PuPd_NOPULL, EXTI_Mode_Interrupt, EXTI_Trigger_Rising);
     NVIC_EnableIRQ(EXTI1_IRQn);
-}
-
-static unsigned accelerometer_read_click(void) {
-    return accelerometer_read_register(LIS35DE_CLICKSRC);
 }
 
 static int accelerometer_contains_single_click(unsigned click_source) {
@@ -252,28 +241,58 @@ void TIM3_IRQHandler(void) {
 
 void I2C1_EV_IRQHandler(void) {
     if (I2C1->SR1 & I2C_SR1_SB) {
-        I2C1->DR = global_i2c_state.address << 1;
+        if (global_i2c_state.write_length > 0) {
+            I2C1->DR = global_i2c_state.address << 1;
+        } else {
+            I2C1->DR = (global_i2c_state.address << 1) | 1;
+            if (global_i2c_state.read_length <= 1) {
+                I2C1->CR1 &= ~I2C_CR1_ACK;
+            } else {
+                I2C1->CR1 |= I2C_CR1_ACK;
+            }
+        }
     }
 
     if (I2C1->SR1 & I2C_SR1_ADDR) {
         I2C1->SR2;
+        if (global_i2c_state.read_started && global_i2c_state.read_length == 1) {
+            I2C1->CR1 |= I2C_CR1_STOP;
+        }
     }
 
     if (global_i2c_state.write_length > 0 && I2C1->SR1 & I2C_SR1_TXE) {
         I2C1->DR = *global_i2c_state.write_data++;
-        if (--global_i2c_state.write_length == 0) {
+        if (--global_i2c_state.write_length == 0 && global_i2c_state.read_length == 0) {
             I2C1->CR2 &= ~I2C_CR2_ITBUFEN;
         }
-    } else if (global_i2c_state.write_length == 0 && I2C1->SR1 & I2C_SR1_BTF) {
-        I2C1->CR1 |= I2C_CR1_STOP;
-        global_i2c_state.on_finish();
+    } else if (global_i2c_state.write_length == 0 && !global_i2c_state.read_started && I2C1->SR1 & I2C_SR1_BTF) {
+        if (global_i2c_state.read_length > 0) {
+            I2C1->CR1 |= I2C_CR1_START;
+            global_i2c_state.read_started = 1;
+        } else {
+            I2C1->CR1 |= I2C_CR1_STOP;
+            global_i2c_state.on_finish();
+        }
+    } else if (I2C1->SR1 & I2C_SR1_RXNE) {
+        *global_i2c_state.read_data++ = I2C1->DR;
+        if (--global_i2c_state.read_length == 1) {
+            I2C1->CR1 &= ~I2C_CR1_ACK;
+            I2C1->CR1 |= I2C_CR1_STOP;
+        } else if (global_i2c_state.read_length == 0) {
+            I2C1->CR2 &= ~I2C_CR2_ITBUFEN;
+            global_i2c_state.on_finish();
+        }
     }
 }
 
 void EXTI1_IRQHandler(void) {
     EXTI->PR = EXTI_PR_PR1;
 
-    unsigned click_source = accelerometer_read_click();
+    i2c_write_read(LIS35DE_I2C_ADDR, &LIS35DE_CLICKSRC, 1, &global_click_source, 1, on_read_clicksrc);
+}
+
+static void on_read_clicksrc(void) {
+    unsigned click_source = global_click_source;
 
     // TODO: Figure out how to handle multiple clicks in a single interrupt.
 
