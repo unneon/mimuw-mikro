@@ -19,6 +19,7 @@ targets = [
 ]
 
 stm32_sources = [
+    'i2c.c',
     'stm32/src/startup_stm32.c',
     'stm32/src/gpio.c',
 ]
