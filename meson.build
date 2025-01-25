@@ -18,12 +18,6 @@ targets = [
     'big',
 ]
 
-stm32_sources = [
-    'i2c.c',
-    'stm32/src/startup_stm32.c',
-    'stm32/src/gpio.c',
-]
-
 shared_args = [
     '-mthumb',
     '-mcpu=cortex-m4',
@@ -48,12 +42,24 @@ link_args = [
     '-Tstm32f411re.lds',
 ] + shared_args
 
+common = static_library('mimuw_mikro',
+    [
+        'src/i2c.c',
+        'stm32/src/startup_stm32.c',
+        'stm32/src/gpio.c',
+    ],
+    c_args: c_args,
+    include_directories: inc_dirs,
+    link_args: link_args,
+)
+
 foreach target : targets
-    elf = executable(target + '_elf',
-        [target + '.c'] + stm32_sources,
+    elf = executable(target + '.elf',
+        'src/' + target + '.c',
         c_args: c_args,
         include_directories: inc_dirs,
         link_args: link_args,
+        link_with: common,
     )
 
     custom_target(target,
