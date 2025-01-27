@@ -1,7 +1,13 @@
 #include <gpio.h>
 #include <stm32.h>
+#include "config.h"
 #include "i2c.h"
 #include "lis35de.h"
+
+static_assert(CONFIG_CLICK_THRESHOLD_MG % 500 == 0 && CONFIG_CLICK_THRESHOLD_MG >= 500 && CONFIG_CLICK_THRESHOLD_MG <= 7'500, "Click threshold must range from 0.5g to 7.5g with a step of 0.5g.");
+static_assert(CONFIG_CLICK_TIMELIMIT_US % 500 == 0 && CONFIG_CLICK_TIMELIMIT_US <= 127'500, "Click time limit must range from 0ms to 127.5ms with a step of 0.5ms.");
+static_assert(CONFIG_CLICK_LATENCY_US % 1000 == 0 && CONFIG_CLICK_TIMELIMIT_US <= 255'000, "Click latency must range from 0ms to 255ms with a step of 1ms.");
+static_assert(CONFIG_CLICK_WINDOW_US % 1000 == 0 && CONFIG_CLICK_WINDOW_US <= 255'000, "Click window must range from 0ms to 255ms with a step of 1ms.");
 
 #define PCLK1_MHZ 16
 #define PCLK1_HZ (PCLK1_MHZ * 1'000'000)
@@ -162,14 +168,13 @@ static constexpr unsigned char ACCELEROMETER_INITSEQ_2[2] = {
         | LIS35DE_CLICKCFG_SINGLEZ | LIS35DE_CLICKCFG_SINGLEY | LIS35DE_CLICKCFG_SINGLEX,
 };
 
-// TODO: Investigate what these parameters actually do.
 static constexpr unsigned char ACCELEROMETER_INITSEQ_3[6] = {
     LIS35DE_CLICKTHSYX | LIS35DE_AUTOINCREMENT,
-    0,
-    0,
-    UINT8_MAX,
-    UINT8_MAX,
-    UINT8_MAX,
+    (CONFIG_CLICK_THRESHOLD_MG / 500) << 4 | (CONFIG_CLICK_THRESHOLD_MG / 500),
+    CONFIG_CLICK_THRESHOLD_MG / 500,
+    CONFIG_CLICK_TIMELIMIT_US / 500,
+    CONFIG_CLICK_LATENCY_US / 1000,
+    CONFIG_CLICK_WINDOW_US / 1000,
 };
 
 static void accelerometer_initialize_1(void) {
