@@ -2,6 +2,7 @@
 #include <stm32.h>
 #include "i2c.h"
 #include "lis35de.h"
+#include "stm32f411xe.h"
 
 #define PCLK1_MHZ 16
 #define PCLK1_HZ (PCLK1_MHZ * 1'000'000)
@@ -22,7 +23,7 @@
 #define LIS35DE_INT1_PIN 1
 
 static unsigned char global_click_source;
-static int global_is_i2c_reading = false;
+static unsigned global_sleep_semaphore = 0;
 
 static void accelerometer_initialize_1(void);
 static void accelerometer_initialize_2(void);
@@ -124,17 +125,21 @@ static void i2c_initialize(void) {
 }
 
 static void sleep_initialize(void) {
-    SCB->SCR |= SCB_SCR_SLEEPONEXIT_Msk;
+    SCB->SCR |= SCB_SCR_SLEEPONEXIT_Msk | SCB_SCR_SLEEPDEEP_Msk;
     PWR->CR &= ~PWR_CR_PDDS;
     PWR->CR |= PWR_CR_LPDS;
 }
 
-static void sleep_set_deep(void) {
-    SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
+static void sleep_prevent_deep(void) {
+    if (++global_sleep_semaphore == 1) {
+        SCB->SCR &= ~SCB_SCR_SLEEPDEEP_Msk;
+    }
 }
 
-static void sleep_set_shallow(void) {
-    SCB->SCR &= ~SCB_SCR_SLEEPDEEP_Msk;
+static void sleep_allow_deep(void) {
+    if (--global_sleep_semaphore == 0) {
+        SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
+    }
 }
 
 static constexpr unsigned char ACCELEROMETER_INITSEQ_1[4] = {
@@ -163,6 +168,7 @@ static constexpr unsigned char ACCELEROMETER_INITSEQ_3[6] = {
 };
 
 static void accelerometer_initialize_1(void) {
+    sleep_prevent_deep();
     i2c_write_read(LIS35DE_I2C_ADDR, ACCELEROMETER_INITSEQ_1, 4, nullptr, 0, accelerometer_initialize_2);
 }
 
@@ -178,7 +184,7 @@ static void accelerometer_initialize_4(void) {
     GPIOinConfigure(LIS35DE_INT1_GPIO, LIS35DE_INT1_PIN, GPIO_PuPd_NOPULL, EXTI_Mode_Interrupt, EXTI_Trigger_Rising);
     NVIC_EnableIRQ(EXTI1_IRQn);
     RCC->APB2ENR &= ~RCC_APB2ENR_SYSCFGEN;
-    sleep_set_deep();
+    sleep_allow_deep();
 }
 
 static int accelerometer_contains_single_click(unsigned click_source) {
@@ -217,17 +223,15 @@ void TIM3_IRQHandler(void) {
     if (TIM3->SR & TIM_SR_CC1IF) {
         timer_1_stop();
         led_red_off();
+        sleep_allow_deep();
         TIM3->SR = ~TIM_SR_CC1IF;
     }
 
     if (TIM3->SR & TIM_SR_CC2IF) {
         timer_2_stop();
         led_green_off();
+        sleep_allow_deep();
         TIM3->SR = ~TIM_SR_CC2IF;
-    }
-
-    if (!timer_1_is_active() && !timer_2_is_active() && !global_is_i2c_reading) {
-        sleep_set_deep();
     }
 }
 
@@ -236,11 +240,12 @@ void EXTI1_IRQHandler(void) {
 
     i2c_write_read(LIS35DE_I2C_ADDR, &LIS35DE_CLICKSRC, 1, &global_click_source, 1, on_read_clicksrc);
 
-    global_is_i2c_reading = true;
-    sleep_set_shallow();
+    sleep_prevent_deep();
 }
 
 static void on_read_clicksrc(void) {
+    sleep_allow_deep();
+
     unsigned click_source = global_click_source;
 
     // TODO: Figure out how to handle multiple clicks in a single interrupt.
@@ -249,6 +254,7 @@ static void on_read_clicksrc(void) {
         if (!timer_1_is_active()) {
             timer_1_start();
             led_red_on();
+            sleep_prevent_deep();
         } else {
             timer_1_extend();
         }
@@ -258,10 +264,9 @@ static void on_read_clicksrc(void) {
         if (!timer_2_is_active()) {
             timer_2_start();
             led_green_on();
+            sleep_prevent_deep();
         } else {
             timer_2_extend();
         }
     }
-
-    global_is_i2c_reading = false;
 }
