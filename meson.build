@@ -2,8 +2,8 @@ project(
     'a2',
     'c',
     default_options: [
-        'debug=true',
-        'optimization=0',
+        'debug=false',
+        'optimization=s',
         'c_std=c23',
         'warning_level=2',
     ],
