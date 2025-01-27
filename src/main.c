@@ -212,10 +212,6 @@ int main(void) {
         __WFI();
 }
 
-// TODO: Document interrupt priorities being the same.
-
-// TODO: Document latching and clearing interrupt flags in both handlers.
-
 void TIM3_IRQHandler(void) {
     if (TIM3->SR & TIM_SR_CC1IF) {
         timer_1_stop();
