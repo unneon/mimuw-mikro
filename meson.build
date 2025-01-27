@@ -1,5 +1,5 @@
 project(
-    'mimuw_mikro',
+    'a2',
     'c',
     default_options: [
         'debug=true',
@@ -11,14 +11,8 @@ project(
 
 objcopy = find_program('objcopy')
 
-targets = [
-    'small_1',
-    'small_2',
-    'small_3',
-    'big',
-]
-
-shared_srcs = [
+sources = [
+    'src/main.c',
     'src/i2c.c',
     'stm32/src/startup_stm32.c',
     'stm32/src/gpio.c',
@@ -48,18 +42,16 @@ link_args = [
     '-Tstm32f411re.lds',
 ] + shared_args
 
-foreach target : targets
-    elf = executable(target + '_elf',
-        ['src/' + target + '.c'] + shared_srcs,
-        c_args: c_args,
-        include_directories: inc_dirs,
-        link_args: link_args,
-    )
+elf = executable('a2.elf',
+    sources,
+    c_args: c_args,
+    include_directories: inc_dirs,
+    link_args: link_args,
+)
 
-    custom_target(target,
-        input: elf,
-        output: target + '.bin',
-        command: [objcopy, '-O', 'binary', '@INPUT@', '@OUTPUT@'],
-        build_by_default: true,
-    )
-endforeach
+custom_target('a2.bin',
+    input: elf,
+    output: 'a2.bin',
+    command: [objcopy, '-O', 'binary', '@INPUT@', '@OUTPUT@'],
+    build_by_default: true,
+)
