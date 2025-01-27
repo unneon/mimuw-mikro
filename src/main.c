@@ -164,8 +164,8 @@ static constexpr unsigned char ACCELEROMETER_INITSEQ_1[4] = {
 static constexpr unsigned char ACCELEROMETER_INITSEQ_2[2] = {
     LIS35DE_CLICKCFG,
     LIS35DE_CLICKCFG_LIR
-        | LIS35DE_CLICKCFG_DOUBLEZ | LIS35DE_CLICKCFG_DOUBLEY | LIS35DE_CLICKCFG_DOUBLEX
-        | LIS35DE_CLICKCFG_SINGLEZ | LIS35DE_CLICKCFG_SINGLEY | LIS35DE_CLICKCFG_SINGLEX,
+        | LIS35DE_CLICKCFG_SINGLEX | LIS35DE_CLICKCFG_SINGLEY | LIS35DE_CLICKCFG_SINGLEZ
+        | LIS35DE_CLICKCFG_DOUBLEX | LIS35DE_CLICKCFG_DOUBLEY | LIS35DE_CLICKCFG_DOUBLEZ,
 };
 
 static constexpr unsigned char ACCELEROMETER_INITSEQ_3[6] = {
@@ -196,15 +196,6 @@ static void accelerometer_initialize_4(void) {
     RCC->APB2ENR &= ~RCC_APB2ENR_SYSCFGEN;
     sleep_allow_deep();
 }
-
-static int accelerometer_contains_single_click(unsigned clicksrc) {
-    return (clicksrc & (LIS35DE_CLICKSRC_SINGLEX | LIS35DE_CLICKSRC_SINGLEY | LIS35DE_CLICKSRC_SINGLEZ)) != 0;
-}
-
-static int accelerometer_contains_double_click(unsigned clicksrc) {
-    return (clicksrc & (LIS35DE_CLICKSRC_DOUBLEX | LIS35DE_CLICKSRC_DOUBLEY | LIS35DE_CLICKSRC_DOUBLEZ)) != 0;
-}
-
 
 int main(void) {
     RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN | RCC_AHB1ENR_GPIOBEN;
@@ -254,9 +245,7 @@ void EXTI1_IRQHandler(void) {
 static void on_read_clicksrc(void) {
     sleep_allow_deep();
 
-    // TODO: Figure out how to handle multiple clicks in a single interrupt.
-
-    if (accelerometer_contains_single_click(global_clicksrc)) {
+    if (global_clicksrc & (LIS35DE_CLICKSRC_SINGLEX | LIS35DE_CLICKSRC_SINGLEY | LIS35DE_CLICKSRC_SINGLEZ)) {
         if (!timer_1_is_active()) {
             led_red_on();
             timer_1_start();
@@ -266,7 +255,7 @@ static void on_read_clicksrc(void) {
         }
     }
 
-    if (accelerometer_contains_double_click(global_clicksrc)) {
+    if (global_clicksrc & (LIS35DE_CLICKSRC_DOUBLEX | LIS35DE_CLICKSRC_DOUBLEY | LIS35DE_CLICKSRC_DOUBLEZ)) {
         if (!timer_2_is_active()) {
             led_green_on();
             timer_2_start();
