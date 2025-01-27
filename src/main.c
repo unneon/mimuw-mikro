@@ -94,9 +94,7 @@ static void timer_1_stop(void) {
 
 static void timer_1_extend(void) {
     TIM3->CCR1 = (uint16_t) (TIM3->CCR1 + TIMER_3S);
-    if (TIM3->SR & TIM_SR_CC1IF) {
-        TIM3->SR = ~TIM_SR_CC1IF;
-    }
+    TIM3->SR = ~TIM_SR_CC1IF;
 }
 
 static int timer_1_is_active(void) {
@@ -114,9 +112,7 @@ static void timer_2_stop(void) {
 
 static void timer_2_extend(void) {
     TIM3->CCR2 = (uint16_t) (TIM3->CCR2 + TIMER_3S);
-    if (TIM3->SR & TIM_SR_CC2IF) {
-        TIM3->SR = ~TIM_SR_CC2IF;
-    }
+    TIM3->SR = ~TIM_SR_CC2IF;
 }
 
 static int timer_2_is_active(void) {
