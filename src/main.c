@@ -1,4 +1,5 @@
 #include <gpio.h>
+#include <stddef.h>
 #include <stm32.h>
 #include "config.h"
 #include "i2c.h"
@@ -220,8 +221,8 @@ int main(void) {
     sleep_initialize();
     accelerometer_initialize_1();
 
-    for (;;)
-        __WFI();
+    __WFI();
+    unreachable();
 }
 
 void TIM3_IRQHandler(void) {
