@@ -252,15 +252,15 @@ int main(void) {
 
 void TIM3_IRQHandler(void) {
     if (TIM3->SR & TIM_SR_CC1IF) {
-        timer_1_stop();
         led_red_off();
+        timer_1_stop();
         sleep_allow_deep();
         TIM3->SR = ~TIM_SR_CC1IF;
     }
 
     if (TIM3->SR & TIM_SR_CC2IF) {
-        timer_2_stop();
         led_green_off();
+        timer_2_stop();
         sleep_allow_deep();
         TIM3->SR = ~TIM_SR_CC2IF;
     }
