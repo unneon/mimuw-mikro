@@ -5,6 +5,10 @@
 #include "i2c.h"
 #include "lis35de.h"
 
+// Some of the logic in the program has to board-specific given the material
+// taught in this course, so the hardware description will also be located
+// here. Other source files do not contain hidden non-portable behavior.
+
 #define PCLK1_MHZ 16
 #define PCLK1_HZ (PCLK1_MHZ * 1'000'000)
 
@@ -43,6 +47,9 @@ static_assert(CONFIG_CLICK_WINDOW_US % 1'000 == 0 && CONFIG_CLICK_WINDOW_US >= 0
 static unsigned char global_clicksrc;
 static unsigned global_sleep_semaphore = 0;
 
+// These functions are forward-declared so that their reading order corresponds
+// to execution order, making the accelerometer initialization sequence and
+// click interrupt handling easier to understand.
 static void accelerometer_initialize_1(void);
 static void accelerometer_initialize_2(void);
 static void accelerometer_initialize_3(void);
@@ -72,6 +79,14 @@ static void led_initialize(void) {
     GPIOoutConfigure(LED_RED_GPIO, LED_RED_PIN, GPIO_OType_PP, GPIO_Low_Speed, GPIO_PuPd_NOPULL);
     GPIOoutConfigure(LED_GREEN_GPIO, LED_GREEN_PIN, GPIO_OType_PP, GPIO_Low_Speed, GPIO_PuPd_NOPULL);
 }
+
+// This program uses the TIM3 timer to keep track of the 3 second intervals
+// specified in the task description. The overflow event is ignored, and CCR1
+// and CCR2 are used for single and double clicks respectively. The associated
+// interrupts are only active when the LED is active, and are disabled in the
+// interrupt handler when the timer expires. When we need to extend the timer,
+// we first increase the CCR value, and then clear the SR register to make sure
+// the interrupt did not fire as the timer was being extended.
 
 static void timer_initialize(void) {
     TIM3->PSC = TIMER_PSC;
@@ -119,6 +134,10 @@ static int timer_2_is_active(void) {
     return (TIM3->DIER & TIM_DIER_CC2IE) != 0;
 }
 
+// Logic driving I2C communication is located in the `i2c.c` file, as it is
+// complex and not board-specific. The initialization is board-specific, so it
+// is located here instead.
+
 static void i2c_initialize(void) {
     GPIOafConfigure(I2C_SCL_GPIO, I2C_SCL_PIN, GPIO_OType_OD, GPIO_Low_Speed, GPIO_PuPd_NOPULL, GPIO_AF_I2C1);
     GPIOafConfigure(I2C_SDA_GPIO, I2C_SDA_PIN, GPIO_OType_OD, GPIO_Low_Speed, GPIO_PuPd_NOPULL, GPIO_AF_I2C1);
@@ -131,6 +150,15 @@ static void i2c_initialize(void) {
 
     NVIC_EnableIRQ(I2C1_EV_IRQn);
 }
+
+// After initialization, the application runs entirely in interrupt handlers.
+// When waiting for an event from an accelerometer, we can enter stop mode
+// (here referred to as deep sleep) as the accelerometer is connected over the
+// EXTI interface which can wake the processor from stop mode. However, when an
+// LED is active or an I2C transfer is active, we have to wait for a TIM3 or
+// I2C1 interrupt which would be disabled in stop mode. To handle concurrency
+// correctly, we use a semaphore keeping track of the number of reasons we
+// cannot enter deep sleep.
 
 static void sleep_initialize(void) {
     SCB->SCR |= SCB_SCR_SLEEPONEXIT_Msk | SCB_SCR_SLEEPDEEP_Msk;
@@ -162,10 +190,6 @@ static constexpr unsigned char ACCELEROMETER_INITSEQ_1[] = {
     LIS35DE_CTRL3_I1CFG_CLICK,
 };
 
-// The LIR (latch interrupt request) bit ensures the accelerometers will not
-// send a next interrupt until the CLICKSRC register is read. This ensures the
-// `EXTI1_IRQHandler` will not start a new I2C sequence before the previous one
-// finishes.
 static constexpr unsigned char ACCELEROMETER_INITSEQ_2[] = {
     LIS35DE_CLICKCFG,
     LIS35DE_CLICKCFG_LIR | LIS35DE_CLICKCFG_SINGLEZ | LIS35DE_CLICKCFG_DOUBLEZ,
@@ -221,6 +245,11 @@ int main(void) {
     unreachable();
 }
 
+// All interrupts use the same priority, which serves as lightweight yet robust
+// mutex. The `on_read_clicksrc` function will also only be called from an
+// interrupt context (`I2C1_EV_IRQHandler` in `i2c.c` after being passed as a
+// callback).
+
 void TIM3_IRQHandler(void) {
     if (TIM3->SR & TIM_SR_CC1IF) {
         timer_1_stop();
@@ -238,6 +267,11 @@ void TIM3_IRQHandler(void) {
 }
 
 void EXTI1_IRQHandler(void) {
+    // The LIR (latch interrupt request) bit set in the accelerometer
+    // initialize sequence ensures the accelerometers will not send a next
+    // interrupt until the CLICKSRC register is read. This ensures this
+    // interrupt handler will not start a new I2C sequence before the previous
+    // one finishes.
     EXTI->PR = EXTI_PR_PR1;
 
     i2c_write_read(LIS35DE_I2C_ADDR, &LIS35DE_CLICKSRC, 1, &global_clicksrc, 1, on_read_clicksrc);
