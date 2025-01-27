@@ -83,7 +83,7 @@ static void timer_initialize(void) {
 }
 
 static void timer_1_start(void) {
-    TIM3->CCR1 = (TIM3->CNT + TIMER_3S) % UINT16_MAX;
+    TIM3->CCR1 = (uint16_t) (TIM3->CNT + TIMER_3S);
     TIM3->DIER |= TIM_DIER_CC1IE;
 }
 
@@ -92,7 +92,7 @@ static void timer_1_stop(void) {
 }
 
 static void timer_1_extend(void) {
-    TIM3->CCR1 = (TIM3->CCR1 + TIMER_3S) % UINT16_MAX;
+    TIM3->CCR1 = (uint16_t) (TIM3->CCR1 + TIMER_3S);
     if (TIM3->SR & TIM_SR_CC1IF) {
         TIM3->SR = ~TIM_SR_CC1IF;
     }
@@ -103,7 +103,7 @@ static int timer_1_is_active(void) {
 }
 
 static void timer_2_start(void) {
-    TIM3->CCR2 = (TIM3->CNT + TIMER_3S) % UINT16_MAX;
+    TIM3->CCR2 = (uint16_t) (TIM3->CNT + TIMER_3S);
     TIM3->DIER |= TIM_DIER_CC2IE;
 }
 
@@ -112,7 +112,7 @@ static void timer_2_stop(void) {
 }
 
 static void timer_2_extend(void) {
-    TIM3->CCR2 = (TIM3->CCR2 + TIMER_3S) % UINT16_MAX;
+    TIM3->CCR2 = (uint16_t) (TIM3->CCR2 + TIMER_3S);
     if (TIM3->SR & TIM_SR_CC2IF) {
         TIM3->SR = ~TIM_SR_CC2IF;
     }
