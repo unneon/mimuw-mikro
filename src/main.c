@@ -173,6 +173,7 @@ static constexpr unsigned char ACCELEROMETER_INITSEQ_3[6] = {
 
 static void accelerometer_initialize_1(void) {
     sleep_prevent_deep();
+
     i2c_write_read(LIS35DE_I2C_ADDR, ACCELEROMETER_INITSEQ_1, 4, nullptr, 0, accelerometer_initialize_2);
 }
 
@@ -186,8 +187,11 @@ static void accelerometer_initialize_3(void) {
 
 static void accelerometer_initialize_4(void) {
     GPIOinConfigure(LIS35DE_INT1_GPIO, LIS35DE_INT1_PIN, GPIO_PuPd_NOPULL, EXTI_Mode_Interrupt, EXTI_Trigger_Rising);
+
     NVIC_EnableIRQ(EXTI1_IRQn);
+
     RCC->APB2ENR &= ~RCC_APB2ENR_SYSCFGEN;
+
     sleep_allow_deep();
 }
 
