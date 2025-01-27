@@ -22,6 +22,7 @@
 #define LIS35DE_INT1_PIN 1
 
 static unsigned char global_click_source;
+static int global_is_i2c_reading = false;
 
 static void accelerometer_initialize_1(void);
 static void accelerometer_initialize_2(void);
@@ -122,6 +123,20 @@ static void i2c_initialize(void) {
     NVIC_EnableIRQ(I2C1_EV_IRQn);
 }
 
+static void sleep_initialize(void) {
+    SCB->SCR |= SCB_SCR_SLEEPONEXIT_Msk;
+    PWR->CR &= ~PWR_CR_PDDS;
+    PWR->CR |= PWR_CR_LPDS;
+}
+
+static void sleep_set_deep(void) {
+    SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
+}
+
+static void sleep_set_shallow(void) {
+    SCB->SCR &= ~SCB_SCR_SLEEPDEEP_Msk;
+}
+
 static constexpr unsigned char ACCELEROMETER_INITSEQ_1[4] = {
     LIS35DE_CTRL1 | LIS35DE_AUTOINCREMENT,
     LIS35DE_CTRL1_PD
@@ -162,6 +177,8 @@ static void accelerometer_initialize_3(void) {
 static void accelerometer_initialize_4(void) {
     GPIOinConfigure(LIS35DE_INT1_GPIO, LIS35DE_INT1_PIN, GPIO_PuPd_NOPULL, EXTI_Mode_Interrupt, EXTI_Trigger_Rising);
     NVIC_EnableIRQ(EXTI1_IRQn);
+    RCC->APB2ENR &= ~RCC_APB2ENR_SYSCFGEN;
+    sleep_set_deep();
 }
 
 static int accelerometer_contains_single_click(unsigned click_source) {
@@ -172,25 +189,29 @@ static int accelerometer_contains_double_click(unsigned click_source) {
     return (click_source & (LIS35DE_CLICKSRC_DOUBLEX | LIS35DE_CLICKSRC_DOUBLEY | LIS35DE_CLICKSRC_DOUBLEZ)) != 0;
 }
 
+
 int main(void) {
     RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN | RCC_AHB1ENR_GPIOBEN;
-    RCC->APB1ENR |= RCC_APB1ENR_I2C1EN | RCC_APB1ENR_TIM3EN;
+    RCC->APB1ENR |= RCC_APB1ENR_I2C1EN | RCC_APB1ENR_PWREN | RCC_APB1ENR_TIM3EN;
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
 
     __NOP();
 
     led_initialize();
     timer_initialize();
     i2c_initialize();
+    sleep_initialize();
     accelerometer_initialize_1();
 
-    // TODO: Enter shallow sleep while LEDs are active, and deep sleep otherwise.
-
-    for (;;);
+    for (;;)
+        __WFI();
 }
 
 // TODO: Document interrupt priorities being the same.
 
 // TODO: Document latching and clearing interrupt flags in both handlers.
+
+// TODO: Fix missing a click when it happens as the LED is tunring off.
 
 void TIM3_IRQHandler(void) {
     if (TIM3->SR & TIM_SR_CC1IF) {
@@ -204,12 +225,19 @@ void TIM3_IRQHandler(void) {
         led_green_off();
         TIM3->SR = ~TIM_SR_CC2IF;
     }
+
+    if (!timer_1_is_active() && !timer_2_is_active() && !global_is_i2c_reading) {
+        sleep_set_deep();
+    }
 }
 
 void EXTI1_IRQHandler(void) {
     EXTI->PR = EXTI_PR_PR1;
 
     i2c_write_read(LIS35DE_I2C_ADDR, &LIS35DE_CLICKSRC, 1, &global_click_source, 1, on_read_clicksrc);
+
+    global_is_i2c_reading = true;
+    sleep_set_shallow();
 }
 
 static void on_read_clicksrc(void) {
@@ -234,4 +262,6 @@ static void on_read_clicksrc(void) {
             timer_2_extend();
         }
     }
+
+    global_is_i2c_reading = false;
 }
