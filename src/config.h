@@ -1,9 +1,9 @@
 #pragma once
 
-// The threshold of acceleration along X, Y or Z axis required to start and
-// finish registering a click, measured in milli-g (1/1000th of 9.81m/s^2).
-// Must range from 0.5g to 7.5g with a step of 0.5g.
-#define CONFIG_CLICK_THRESHOLD_MG 7'500
+// The threshold of acceleration along the Z axis required to start and finish
+// registering a click, measured in milli-g (1/1000th of 9.81m/s^2). Must range
+// from 0.5g to 7.5g with a step of 0.5g.
+#define CONFIG_CLICK_THRESHOLD_MG 3'500
 
 // The maximum time between the acceleration exceeding the threshold value and
 // acceleration then falling below the threshold value required to register any
