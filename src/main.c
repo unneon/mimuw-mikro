@@ -25,13 +25,13 @@
 // PSC is set as high as possible to reduce power usage (?), while cleanly
 // dividing 16 MHz into 250 Hz. The 3 second period specified in the task
 // description then occurs exactly every 750 ticks.
-#define TIMER_PSC 64000
+#define TIMER_PSC 64'000
 #define TIMER_3S 750
 
 static_assert(CONFIG_CLICK_THRESHOLD_MG % 500 == 0 && CONFIG_CLICK_THRESHOLD_MG >= 500 && CONFIG_CLICK_THRESHOLD_MG <= 7'500, "Click threshold must range from 0.5g to 7.5g with a step of 0.5g.");
 static_assert(CONFIG_CLICK_TIMELIMIT_US % 500 == 0 && CONFIG_CLICK_TIMELIMIT_US >= 0 && CONFIG_CLICK_TIMELIMIT_US <= 127'500, "Click time limit must range from 0ms to 127.5ms with a step of 0.5ms.");
-static_assert(CONFIG_CLICK_LATENCY_US % 1000 == 0 && CONFIG_CLICK_LATENCY_US >= 0 && CONFIG_CLICK_LATENCY_US <= 255'000, "Click latency must range from 0ms to 255ms with a step of 1ms.");
-static_assert(CONFIG_CLICK_WINDOW_US % 1000 == 0 && CONFIG_CLICK_WINDOW_US >= 0 && CONFIG_CLICK_WINDOW_US <= 255'000, "Click window must range from 0ms to 255ms with a step of 1ms.");
+static_assert(CONFIG_CLICK_LATENCY_US % 1'000 == 0 && CONFIG_CLICK_LATENCY_US >= 0 && CONFIG_CLICK_LATENCY_US <= 255'000, "Click latency must range from 0ms to 255ms with a step of 1ms.");
+static_assert(CONFIG_CLICK_WINDOW_US % 1'000 == 0 && CONFIG_CLICK_WINDOW_US >= 0 && CONFIG_CLICK_WINDOW_US <= 255'000, "Click window must range from 0ms to 255ms with a step of 1ms.");
 
 // All accesses to the global variables happen in interrupt handlers, with one
 // exception. The `global_sleep_semaphore` variable is accessed in
@@ -182,8 +182,8 @@ static constexpr unsigned char ACCELEROMETER_INITSEQ_3[] = {
     (CONFIG_CLICK_THRESHOLD_MG / 500) << 4 | (CONFIG_CLICK_THRESHOLD_MG / 500),
     CONFIG_CLICK_THRESHOLD_MG / 500,
     CONFIG_CLICK_TIMELIMIT_US / 500,
-    CONFIG_CLICK_LATENCY_US / 1000,
-    CONFIG_CLICK_WINDOW_US / 1000,
+    CONFIG_CLICK_LATENCY_US / 1'000,
+    CONFIG_CLICK_WINDOW_US / 1'000,
 };
 
 static void accelerometer_initialize_1(void) {
