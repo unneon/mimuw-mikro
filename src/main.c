@@ -33,6 +33,12 @@ static_assert(CONFIG_CLICK_TIMELIMIT_US % 500 == 0 && CONFIG_CLICK_TIMELIMIT_US 
 static_assert(CONFIG_CLICK_LATENCY_US % 1000 == 0 && CONFIG_CLICK_LATENCY_US >= 0 && CONFIG_CLICK_LATENCY_US <= 255'000, "Click latency must range from 0ms to 255ms with a step of 1ms.");
 static_assert(CONFIG_CLICK_WINDOW_US % 1000 == 0 && CONFIG_CLICK_WINDOW_US >= 0 && CONFIG_CLICK_WINDOW_US <= 255'000, "Click window must range from 0ms to 255ms with a step of 1ms.");
 
+// All accesses to the global variables happen in interrupt handlers, with one
+// exception. The `global_sleep_semaphore` variable is accessed in
+// `accelerometer_initialize_1`, but no other code will access it until the
+// accelerometer is fully initialized and sends an interrupt. Thanks to the
+// fact that all interrupts are configured to the same default priority, using
+// these variables is safe without disabling interrupts.
 static unsigned char global_clicksrc;
 static unsigned global_sleep_semaphore = 0;
 
@@ -147,7 +153,12 @@ static void sleep_allow_deep(void) {
     }
 }
 
-static constexpr unsigned char ACCELEROMETER_INITSEQ_1[4] = {
+// According to LIS35DE documentation, it's possible to write of read multiple
+// registers in a row using the LIS35DE_AUTOINCREMENT bit. Thanks to this, the
+// initialization sequence of the accelerometer can be reduced to 3 I2C
+// sequences.
+
+static constexpr unsigned char ACCELEROMETER_INITSEQ_1[] = {
     LIS35DE_CTRL1 | LIS35DE_AUTOINCREMENT,
     LIS35DE_CTRL1_PD
         | LIS35DE_CTRL1_XEN | LIS35DE_CTRL1_YEN | LIS35DE_CTRL1_ZEN,
@@ -155,14 +166,18 @@ static constexpr unsigned char ACCELEROMETER_INITSEQ_1[4] = {
     LIS35DE_CTRL3_I1CFG_CLICK,
 };
 
-static constexpr unsigned char ACCELEROMETER_INITSEQ_2[2] = {
+// The LIR (latch interrupt request) bit ensures the accelerometers will not
+// send a next interrupt until the CLICKSRC register is read. This ensures the
+// `EXTI1_IRQHandler` will not start a new I2C sequence before the previous one
+// finishes.
+static constexpr unsigned char ACCELEROMETER_INITSEQ_2[] = {
     LIS35DE_CLICKCFG,
     LIS35DE_CLICKCFG_LIR
         | LIS35DE_CLICKCFG_SINGLEX | LIS35DE_CLICKCFG_SINGLEY | LIS35DE_CLICKCFG_SINGLEZ
         | LIS35DE_CLICKCFG_DOUBLEX | LIS35DE_CLICKCFG_DOUBLEY | LIS35DE_CLICKCFG_DOUBLEZ,
 };
 
-static constexpr unsigned char ACCELEROMETER_INITSEQ_3[6] = {
+static constexpr unsigned char ACCELEROMETER_INITSEQ_3[] = {
     LIS35DE_CLICKTHSYX | LIS35DE_AUTOINCREMENT,
     (CONFIG_CLICK_THRESHOLD_MG / 500) << 4 | (CONFIG_CLICK_THRESHOLD_MG / 500),
     CONFIG_CLICK_THRESHOLD_MG / 500,
@@ -174,15 +189,15 @@ static constexpr unsigned char ACCELEROMETER_INITSEQ_3[6] = {
 static void accelerometer_initialize_1(void) {
     sleep_prevent_deep();
 
-    i2c_write_read(LIS35DE_I2C_ADDR, ACCELEROMETER_INITSEQ_1, 4, nullptr, 0, accelerometer_initialize_2);
+    i2c_write_read(LIS35DE_I2C_ADDR, ACCELEROMETER_INITSEQ_1, sizeof(ACCELEROMETER_INITSEQ_1), nullptr, 0, accelerometer_initialize_2);
 }
 
 static void accelerometer_initialize_2(void) {
-    i2c_write_read(LIS35DE_I2C_ADDR, ACCELEROMETER_INITSEQ_2, 2, nullptr, 0, accelerometer_initialize_3);
+    i2c_write_read(LIS35DE_I2C_ADDR, ACCELEROMETER_INITSEQ_2, sizeof(ACCELEROMETER_INITSEQ_2), nullptr, 0, accelerometer_initialize_3);
 }
 
 static void accelerometer_initialize_3(void) {
-    i2c_write_read(LIS35DE_I2C_ADDR, ACCELEROMETER_INITSEQ_3, 6, nullptr, 0, accelerometer_initialize_4);
+    i2c_write_read(LIS35DE_I2C_ADDR, ACCELEROMETER_INITSEQ_3, sizeof(ACCELEROMETER_INITSEQ_3), nullptr, 0, accelerometer_initialize_4);
 }
 
 static void accelerometer_initialize_4(void) {
