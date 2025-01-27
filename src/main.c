@@ -21,7 +21,7 @@
 #define LIS35DE_INT1_GPIO GPIOA
 #define LIS35DE_INT1_PIN 1
 
-static unsigned char global_click_source;
+static unsigned char global_clicksrc;
 static unsigned global_sleep_semaphore = 0;
 
 static void accelerometer_initialize_1(void);
@@ -192,12 +192,12 @@ static void accelerometer_initialize_4(void) {
     sleep_allow_deep();
 }
 
-static int accelerometer_contains_single_click(unsigned click_source) {
-    return (click_source & (LIS35DE_CLICKSRC_SINGLEX | LIS35DE_CLICKSRC_SINGLEY | LIS35DE_CLICKSRC_SINGLEZ)) != 0;
+static int accelerometer_contains_single_click(unsigned clicksrc) {
+    return (clicksrc & (LIS35DE_CLICKSRC_SINGLEX | LIS35DE_CLICKSRC_SINGLEY | LIS35DE_CLICKSRC_SINGLEZ)) != 0;
 }
 
-static int accelerometer_contains_double_click(unsigned click_source) {
-    return (click_source & (LIS35DE_CLICKSRC_DOUBLEX | LIS35DE_CLICKSRC_DOUBLEY | LIS35DE_CLICKSRC_DOUBLEZ)) != 0;
+static int accelerometer_contains_double_click(unsigned clicksrc) {
+    return (clicksrc & (LIS35DE_CLICKSRC_DOUBLEX | LIS35DE_CLICKSRC_DOUBLEY | LIS35DE_CLICKSRC_DOUBLEZ)) != 0;
 }
 
 
@@ -241,7 +241,7 @@ void TIM3_IRQHandler(void) {
 void EXTI1_IRQHandler(void) {
     EXTI->PR = EXTI_PR_PR1;
 
-    i2c_write_read(LIS35DE_I2C_ADDR, &LIS35DE_CLICKSRC, 1, &global_click_source, 1, on_read_clicksrc);
+    i2c_write_read(LIS35DE_I2C_ADDR, &LIS35DE_CLICKSRC, 1, &global_clicksrc, 1, on_read_clicksrc);
 
     sleep_prevent_deep();
 }
@@ -249,11 +249,9 @@ void EXTI1_IRQHandler(void) {
 static void on_read_clicksrc(void) {
     sleep_allow_deep();
 
-    unsigned click_source = global_click_source;
-
     // TODO: Figure out how to handle multiple clicks in a single interrupt.
 
-    if (accelerometer_contains_single_click(click_source)) {
+    if (accelerometer_contains_single_click(global_clicksrc)) {
         if (!timer_1_is_active()) {
             timer_1_start();
             led_red_on();
@@ -263,7 +261,7 @@ static void on_read_clicksrc(void) {
         }
     }
 
-    if (accelerometer_contains_double_click(click_source)) {
+    if (accelerometer_contains_double_click(global_clicksrc)) {
         if (!timer_2_is_active()) {
             timer_2_start();
             led_green_on();
