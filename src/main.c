@@ -2,7 +2,6 @@
 #include <stm32.h>
 #include "i2c.h"
 #include "lis35de.h"
-#include "stm32f411xe.h"
 
 #define PCLK1_MHZ 16
 #define PCLK1_HZ (PCLK1_MHZ * 1'000'000)
