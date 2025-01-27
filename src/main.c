@@ -22,6 +22,12 @@
 #define LIS35DE_INT1_GPIO GPIOA
 #define LIS35DE_INT1_PIN 1
 
+// PSC is set as high as possible to reduce power usage (?), while cleanly
+// dividing 16 MHz into 250 Hz. The 3 second period specified in the task
+// description then occurs exactly every 750 ticks.
+#define TIMER_PSC 64000
+#define TIMER_3S 750
+
 static_assert(CONFIG_CLICK_THRESHOLD_MG % 500 == 0 && CONFIG_CLICK_THRESHOLD_MG >= 500 && CONFIG_CLICK_THRESHOLD_MG <= 7'500, "Click threshold must range from 0.5g to 7.5g with a step of 0.5g.");
 static_assert(CONFIG_CLICK_TIMELIMIT_US % 500 == 0 && CONFIG_CLICK_TIMELIMIT_US >= 0 && CONFIG_CLICK_TIMELIMIT_US <= 127'500, "Click time limit must range from 0ms to 127.5ms with a step of 0.5ms.");
 static_assert(CONFIG_CLICK_LATENCY_US % 1000 == 0 && CONFIG_CLICK_LATENCY_US >= 0 && CONFIG_CLICK_LATENCY_US <= 255'000, "Click latency must range from 0ms to 255ms with a step of 1ms.");
@@ -61,29 +67,17 @@ static void led_initialize(void) {
 }
 
 static void timer_initialize(void) {
-    // PSC is set as high as possible to reduce power usage (?), while cleanly
-    // dividing 16 MHz into 250 Hz, which means 3 seconds from the task
-    // statement translate precisely to 750 ticks.
-    TIM3->PSC = 64000;
+    TIM3->PSC = TIMER_PSC;
     TIM3->ARR = UINT16_MAX;
-
-    // We will be using two compares to handle timeouts of red LED (single
-    // click) and green LED (double click) respectively. However, interrupts in
-    // the DIER register will only be enabled after we receive the click signal.
     TIM3->SR = ~(TIM_SR_CC1IF | TIM_SR_CC2IF);
     TIM3->EGR = TIM_EGR_UG;
-
     TIM3->CR1 = TIM_CR1_CEN;
 
     NVIC_EnableIRQ(TIM3_IRQn);
 }
 
-// TODO: Document how timers work in this program?
-
-// TODO: Extract 750 (750 timer ticks = 3 seconds) to a constant.
-
 static void timer_1_start(void) {
-    TIM3->CCR1 = TIM3->CNT + 750;
+    TIM3->CCR1 = (TIM3->CNT + TIMER_3S) % UINT16_MAX;
     TIM3->DIER |= TIM_DIER_CC1IE;
 }
 
@@ -92,7 +86,7 @@ static void timer_1_stop(void) {
 }
 
 static void timer_1_extend(void) {
-    TIM3->CCR1 = (TIM3->CCR1 + 750) % UINT16_MAX;
+    TIM3->CCR1 = (TIM3->CCR1 + TIMER_3S) % UINT16_MAX;
     if (TIM3->SR & TIM_SR_CC1IF) {
         TIM3->SR = ~TIM_SR_CC1IF;
     }
@@ -103,7 +97,7 @@ static int timer_1_is_active(void) {
 }
 
 static void timer_2_start(void) {
-    TIM3->CCR2 = TIM3->CNT + 750;
+    TIM3->CCR2 = (TIM3->CNT + TIMER_3S) % UINT16_MAX;
     TIM3->DIER |= TIM_DIER_CC2IE;
 }
 
@@ -112,7 +106,7 @@ static void timer_2_stop(void) {
 }
 
 static void timer_2_extend(void) {
-    TIM3->CCR2 = (TIM3->CCR2 + 750) % UINT16_MAX;
+    TIM3->CCR2 = (TIM3->CCR2 + TIMER_3S) % UINT16_MAX;
     if (TIM3->SR & TIM_SR_CC2IF) {
         TIM3->SR = ~TIM_SR_CC2IF;
     }
