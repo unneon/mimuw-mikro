@@ -88,6 +88,9 @@ static void timer_1_stop(void) {
 
 static void timer_1_extend(void) {
     TIM3->CCR1 = (TIM3->CCR1 + 750) % UINT16_MAX;
+    if (TIM3->SR & TIM_SR_CC1IF) {
+        TIM3->SR = ~TIM_SR_CC1IF;
+    }
 }
 
 static int timer_1_is_active(void) {
@@ -105,6 +108,9 @@ static void timer_2_stop(void) {
 
 static void timer_2_extend(void) {
     TIM3->CCR2 = (TIM3->CCR2 + 750) % UINT16_MAX;
+    if (TIM3->SR & TIM_SR_CC2IF) {
+        TIM3->SR = ~TIM_SR_CC2IF;
+    }
 }
 
 static int timer_2_is_active(void) {
@@ -216,8 +222,6 @@ int main(void) {
 // TODO: Document interrupt priorities being the same.
 
 // TODO: Document latching and clearing interrupt flags in both handlers.
-
-// TODO: Fix missing a click when it happens as the LED is tunring off.
 
 void TIM3_IRQHandler(void) {
     if (TIM3->SR & TIM_SR_CC1IF) {
