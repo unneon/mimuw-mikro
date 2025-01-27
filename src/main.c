@@ -258,8 +258,8 @@ static void on_read_clicksrc(void) {
 
     if (accelerometer_contains_single_click(global_clicksrc)) {
         if (!timer_1_is_active()) {
-            timer_1_start();
             led_red_on();
+            timer_1_start();
             sleep_prevent_deep();
         } else {
             timer_1_extend();
@@ -268,8 +268,8 @@ static void on_read_clicksrc(void) {
 
     if (accelerometer_contains_double_click(global_clicksrc)) {
         if (!timer_2_is_active()) {
-            timer_2_start();
             led_green_on();
+            timer_2_start();
             sleep_prevent_deep();
         } else {
             timer_2_extend();
