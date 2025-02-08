@@ -42,7 +42,7 @@ link_args = [
     '-Tstm32f411re.lds',
 ] + shared_args
 
-elf = executable('a2.elf',
+elf = executable('a2',
     sources,
     c_args: c_args,
     include_directories: inc_dirs,
