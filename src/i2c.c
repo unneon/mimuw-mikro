@@ -2,23 +2,21 @@
 #include <stm32.h>
 #include "i2c.h"
 
-struct I2cState {
+static volatile struct {
     unsigned address;
     const unsigned char* write_data;
     unsigned write_length;
-    unsigned char* read_data;
+    volatile unsigned char* read_data;
     unsigned read_length;
     int read_started;
     void(*on_finish)(void);
-};
-
-static struct I2cState global_state;
+} global_state;
 
 void i2c_write_read(
     unsigned address,
     const unsigned char* write_data,
     unsigned write_length,
-    unsigned char* read_data,
+    volatile unsigned char* read_data,
     unsigned read_length,
     void(*on_finish)(void)
 ) {

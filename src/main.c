@@ -44,8 +44,8 @@ static_assert(CONFIG_CLICK_WINDOW_US % 1'000 == 0 && CONFIG_CLICK_WINDOW_US >= 0
 // accelerometer is fully initialized and sends an interrupt. Thanks to the
 // fact that all interrupts are configured to the same default priority, using
 // these variables is safe without disabling interrupts.
-static unsigned char global_clicksrc;
-static unsigned global_sleep_semaphore = 0;
+static volatile unsigned char global_clicksrc;
+static volatile unsigned global_sleep_semaphore = 0;
 
 // These functions are forward-declared so that their reading order corresponds
 // to execution order, making the accelerometer initialization sequence and
