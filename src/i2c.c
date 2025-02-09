@@ -2,6 +2,8 @@
 #include <stm32.h>
 #include "i2c.h"
 
+#define WAIT_WHILE(condition) while (condition) {}
+
 static volatile struct {
     unsigned address;
     const unsigned char* write_data;
@@ -27,6 +29,7 @@ void i2c_write_read(
     global_state.read_length = read_length;
     global_state.read_started = 0;
     global_state.on_finish = on_finish;
+    WAIT_WHILE(I2C1->SR2 & I2C_SR2_BUSY);
     I2C1->CR2 |= I2C_CR2_ITBUFEN;
     I2C1->CR1 |= I2C_CR1_START;
 }
