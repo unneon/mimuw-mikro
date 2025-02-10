@@ -29,7 +29,6 @@ void i2c_write_read(
     global_state.read_length = read_length;
     global_state.read_started = 0;
     global_state.on_finish = on_finish;
-    WAIT_WHILE(I2C1->SR2 & I2C_SR2_BUSY);
     I2C1->CR2 |= I2C_CR2_ITBUFEN;
     I2C1->CR1 |= I2C_CR1_START;
 }
@@ -66,6 +65,7 @@ void I2C1_EV_IRQHandler(void) {
             global_state.read_started = 1;
         } else {
             I2C1->CR1 |= I2C_CR1_STOP;
+            WAIT_WHILE(I2C1->SR2 & I2C_SR2_BUSY);
             global_state.on_finish();
         }
     } else if (I2C1->SR1 & I2C_SR1_RXNE) {
@@ -75,6 +75,7 @@ void I2C1_EV_IRQHandler(void) {
             I2C1->CR1 |= I2C_CR1_STOP;
         } else if (global_state.read_length == 0) {
             I2C1->CR2 &= ~I2C_CR2_ITBUFEN;
+            WAIT_WHILE(I2C1->SR2 & I2C_SR2_BUSY);
             global_state.on_finish();
         }
     }

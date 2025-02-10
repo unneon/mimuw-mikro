@@ -54,6 +54,7 @@ static void accelerometer_initialize_1(void);
 static void accelerometer_initialize_2(void);
 static void accelerometer_initialize_3(void);
 static void accelerometer_initialize_4(void);
+static void accelerometer_initialize_5(void);
 static void on_read_clicksrc(void);
 
 static void led_red_on(void) {
@@ -178,16 +179,21 @@ static void sleep_allow_deep(void) {
     }
 }
 
-// According to LIS35DE documentation, it's possible to write of read multiple
+// According to LIS35DE documentation, it's possible to read or write multiple
 // registers in a row using the LIS35DE_AUTOINCREMENT bit. Thanks to this, the
-// initialization sequence of the accelerometer can be reduced to 3 I2C
-// sequences.
+// initialization sequence of the accelerometer can be reduced to just 4 I2C
+// transmissions.
 
 static constexpr unsigned char ACCELEROMETER_INITSEQ_1[] = {
     LIS35DE_CTRL1 | LIS35DE_AUTOINCREMENT,
-    LIS35DE_CTRL1_PD | LIS35DE_CTRL1_ZEN,
+    // Course material suggest completely zeroing out this register as well,
+    // but in power-down mode the accelerometer seems to ignore writing the
+    // configuration registers used for specifying click behavior. I'd rather
+    // configure the clicks first, to ensure the configuration is applied
+    // before enabling interrupts.
+    LIS35DE_CTRL1_PD,
     0,
-    LIS35DE_CTRL3_I1CFG_CLICK,
+    0,
 };
 
 static constexpr unsigned char ACCELEROMETER_INITSEQ_2[] = {
@@ -204,6 +210,13 @@ static constexpr unsigned char ACCELEROMETER_INITSEQ_3[] = {
     CONFIG_CLICK_WINDOW_US / 1'000,
 };
 
+static constexpr unsigned char ACCELEROMETER_INITSEQ_4[] = {
+    LIS35DE_CTRL1 | LIS35DE_AUTOINCREMENT,
+    LIS35DE_CTRL1_PD | LIS35DE_CTRL1_ZEN,
+    0,
+    LIS35DE_CTRL3_I1CFG_CLICK,
+};
+
 static void accelerometer_initialize_1(void) {
     sleep_prevent_deep();
 
@@ -211,6 +224,13 @@ static void accelerometer_initialize_1(void) {
 }
 
 static void accelerometer_initialize_2(void) {
+    GPIOinConfigure(LIS35DE_INT1_GPIO, LIS35DE_INT1_PIN, GPIO_PuPd_NOPULL, EXTI_Mode_Interrupt, EXTI_Trigger_Rising);
+
+    EXTI->PR = EXTI_PR_PR1;
+    RCC->APB2ENR &= ~RCC_APB2ENR_SYSCFGEN;
+
+    NVIC_EnableIRQ(EXTI1_IRQn);
+
     i2c_write_read(LIS35DE_I2C_ADDR, ACCELEROMETER_INITSEQ_2, sizeof(ACCELEROMETER_INITSEQ_2), nullptr, 0, accelerometer_initialize_3);
 }
 
@@ -219,12 +239,10 @@ static void accelerometer_initialize_3(void) {
 }
 
 static void accelerometer_initialize_4(void) {
-    GPIOinConfigure(LIS35DE_INT1_GPIO, LIS35DE_INT1_PIN, GPIO_PuPd_NOPULL, EXTI_Mode_Interrupt, EXTI_Trigger_Rising);
+    i2c_write_read(LIS35DE_I2C_ADDR, ACCELEROMETER_INITSEQ_4, sizeof(ACCELEROMETER_INITSEQ_4), nullptr, 0, accelerometer_initialize_5);
+}
 
-    NVIC_EnableIRQ(EXTI1_IRQn);
-
-    RCC->APB2ENR &= ~RCC_APB2ENR_SYSCFGEN;
-
+static void accelerometer_initialize_5(void) {
     sleep_allow_deep();
 }
 
