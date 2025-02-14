@@ -243,6 +243,11 @@ static void accelerometer_initialize_4(void) {
 }
 
 static void accelerometer_initialize_5(void) {
+    // The I2C bus needs to be idle before we enter deep sleep, as otherwise
+    // the peripheral would be powered down in the middle of sending a STOP
+    // signal.
+    i2c_wait_until_idle();
+
     sleep_allow_deep();
 }
 

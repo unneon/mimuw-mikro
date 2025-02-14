@@ -29,8 +29,21 @@ void i2c_write_read(
     global_state.read_length = read_length;
     global_state.read_started = 0;
     global_state.on_finish = on_finish;
+
+    // Bus needs to be idle in order to start a new transmission. This is
+    // unfortunately not mentioned in lecture materials.
+    i2c_wait_until_idle();
+
     I2C1->CR2 |= I2C_CR2_ITBUFEN;
     I2C1->CR1 |= I2C_CR1_START;
+}
+
+void i2c_wait_until_idle(void) {
+    // There is no way to do this without busy waits, as STM32 doesn't support
+    // firing an interrupt when this bit is set. Fortunately, the wait is just
+    // several cycles long, so it shouldn't be too much of a problem to call
+    // this function even from an interrupt.
+    WAIT_WHILE(I2C1->SR2 & I2C_SR2_BUSY);
 }
 
 void I2C1_EV_IRQHandler(void) {
@@ -65,7 +78,6 @@ void I2C1_EV_IRQHandler(void) {
             global_state.read_started = 1;
         } else {
             I2C1->CR1 |= I2C_CR1_STOP;
-            WAIT_WHILE(I2C1->SR2 & I2C_SR2_BUSY);
             global_state.on_finish();
         }
     } else if (I2C1->SR1 & I2C_SR1_RXNE) {
@@ -75,7 +87,6 @@ void I2C1_EV_IRQHandler(void) {
             I2C1->CR1 |= I2C_CR1_STOP;
         } else if (global_state.read_length == 0) {
             I2C1->CR2 &= ~I2C_CR2_ITBUFEN;
-            WAIT_WHILE(I2C1->SR2 & I2C_SR2_BUSY);
             global_state.on_finish();
         }
     }
