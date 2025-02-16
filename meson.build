@@ -9,8 +9,6 @@ project(
     ],
 )
 
-objcopy = find_program('objcopy')
-
 sources = [
     'src/main.c',
     'src/i2c.c',
@@ -42,16 +40,9 @@ link_args = [
     '-Tstm32f411re.lds',
 ] + shared_args
 
-elf = executable('a2',
+executable('a2',
     sources,
     c_args: c_args,
     include_directories: inc_dirs,
     link_args: link_args,
-)
-
-custom_target('a2.bin',
-    input: elf,
-    output: 'a2.bin',
-    command: [objcopy, '-O', 'binary', '@INPUT@', '@OUTPUT@'],
-    build_by_default: true,
 )
