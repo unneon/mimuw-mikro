@@ -31,7 +31,7 @@
 // dividing 16 MHz into 250 Hz. The 3 second period specified in the task
 // description then occurs exactly every 750 ticks.
 #define TIMER_PSC 64'000
-#define TIMER_PERIOD_TICKS 750
+#define TIMER_PERIOD 750
 
 static_assert(CLICK_THRESHOLD_MG % 500 == 0 && CLICK_THRESHOLD_MG >= 500 && CLICK_THRESHOLD_MG <= 7'500, "Click threshold must range from 0.5g to 7.5g with a step of 0.5g.");
 static_assert(CLICK_TIMELIMIT_US % 500 == 0 && CLICK_TIMELIMIT_US >= 0 && CLICK_TIMELIMIT_US <= 127'500, "Click time limit must range from 0ms to 127.5ms with a step of 0.5ms.");
@@ -100,7 +100,7 @@ static void timer_initialize(void) {
 }
 
 static void timer_1_start(void) {
-    TIM3->CCR1 = (uint16_t) (TIM3->CNT + TIMER_PERIOD_TICKS);
+    TIM3->CCR1 = (uint16_t) (TIM3->CNT + TIMER_PERIOD);
     TIM3->DIER |= TIM_DIER_CC1IE;
 }
 
@@ -109,7 +109,7 @@ static void timer_1_stop(void) {
 }
 
 static void timer_1_extend(void) {
-    TIM3->CCR1 = (uint16_t) (TIM3->CCR1 + TIMER_PERIOD_TICKS);
+    TIM3->CCR1 = (uint16_t) (TIM3->CCR1 + TIMER_PERIOD);
     TIM3->SR = ~TIM_SR_CC1IF;
 }
 
@@ -118,7 +118,7 @@ static int timer_1_is_active(void) {
 }
 
 static void timer_2_start(void) {
-    TIM3->CCR2 = (uint16_t) (TIM3->CNT + TIMER_PERIOD_TICKS);
+    TIM3->CCR2 = (uint16_t) (TIM3->CNT + TIMER_PERIOD);
     TIM3->DIER |= TIM_DIER_CC2IE;
 }
 
@@ -127,7 +127,7 @@ static void timer_2_stop(void) {
 }
 
 static void timer_2_extend(void) {
-    TIM3->CCR2 = (uint16_t) (TIM3->CCR2 + TIMER_PERIOD_TICKS);
+    TIM3->CCR2 = (uint16_t) (TIM3->CCR2 + TIMER_PERIOD);
     TIM3->SR = ~TIM_SR_CC2IF;
 }
 
